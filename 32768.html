@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>2048 · 6×6 · 32768（带动画 · 修复位移）</title>
+<title>2048 · 6×6 · 32768（带动画 · 合并修复）</title>
 <meta name="theme-color" content="#faf8ef" />
 <style>
   :root { --gap: 10px; --radius: 10px; --size: 6; }
@@ -53,7 +53,7 @@
   }
   .bg-cell { background:#cdc1b4; border-radius: 6px; }
 
-  /* 活动方块（用像素级 --cellPx 计算位移，避免百分比参照差异） */
+  /* 活动方块（用像素级 --cellPx 计算位移） */
   .tiles { position: absolute; inset: 0; }
   .tile {
     position: absolute;
@@ -119,7 +119,7 @@
 <body>
   <div class="wrap" role="application" aria-label="2048 6×6">
     <h1>2048 · 6×6 · 32768</h1>
-    <div class="sub">带平滑滑动动画；修复位移计算；合成到 32768 即胜利。方向键 / WASD / HJKL 与触控滑动均可。</div>
+    <div class="sub">带平滑滑动动画；像素定位修复；合并逻辑修复。合成到 32768 即胜利。</div>
     <div class="topbar">
       <div class="badge" aria-live="polite"><small>得分</small><b id="score">0</b></div>
       <div class="badge"><small>最佳</small><b id="best">0</b></div>
@@ -172,7 +172,7 @@
     boardEl.style.setProperty('--cellPx', cell + 'px');
   }
   window.addEventListener('resize', updateCellSize, { passive: true });
-  updateCellSize(); // 放在任何创建/摆放棋子之前
+  updateCellSize(); // 先计算尺寸，再往里放方块
 
   // 生成背景格子
   gridEl.innerHTML = '';
@@ -252,7 +252,6 @@
         el.style.setProperty('--scale', 1);
       });
     }
-
     return t;
   }
 
@@ -331,9 +330,7 @@
     return false;
   }
 
-  function hasWon() {
-    return tiles.some(t => t.value === WIN_VALUE);
-  }
+  function hasWon() { return tiles.some(t => t.value === WIN_VALUE); }
 
   function showOverlay(text) {
     msgEl.textContent = text;
@@ -345,66 +342,62 @@
     overlay.setAttribute('aria-hidden', 'true');
   }
 
-  // ---- 核心：计算一次移动计划，再做动画 ----
+  // ---- 核心移动：以“最后落位者”为基准进行合并（修复点） ----
   function move(dir) {
     if (isAnimating) return;
 
-    const dirVec = {
-      left:  { axis: 'row' },
-      right: { axis: 'row' },
-      up:    { axis: 'col' },
-      down:  { axis: 'col' },
-    }[dir];
-    if (!dirVec) return;
-
-    const target = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-    const plan = new Map();   // id -> {toRow, toCol, mergeIntoId?}
+    const plan = new Map(); // id -> {toRow, toCol, mergeIntoId?}
     let gained = 0;
 
-    if (dir === 'left' || dir === 'right') {
-      for (let r = 0; r < SIZE; r++) {
-        const line = tiles.filter(t => t.row === r)
-          .sort((a, b) => dir === 'left' ? a.col - b.col : b.col - a.col);
-        if (!line.length) continue;
+    const applyLine = (tilesInLine, isRow, fixedIndex, toward) => {
+      // tilesInLine 已按方向排序（靠边的在前）
+      let dest = toward === 'neg' ? 0 : SIZE - 1; // 对应 left/up 用 0；right/down 用 SIZE-1
+      let lastKeeper = null; // 上一个“已经占位”的存活者
 
-        let dest = (dir === 'left') ? 0 : SIZE - 1;
-        for (let i = 0; i < line.length; i++) {
-          const t = line[i];
-          const tryMerge = target[r][dest];
-          if (tryMerge && tryMerge.value === t.value && !tryMerge._mergedThisStep) {
-            plan.set(t.id, { toRow: r, toCol: dest, mergeIntoId: tryMerge.id });
-            tryMerge._mergedThisStep = true;
-            gained += tryMerge.value * 2;
-          } else {
-            plan.set(t.id, { toRow: r, toCol: dest });
-            target[r][dest] = target[r][dest] || t;
-            dest += (dir === 'left' ? 1 : -1);
-          }
+      for (const t of tilesInLine) {
+        if (lastKeeper && !lastKeeper._mergedThisStep && lastKeeper.value === t.value) {
+          // 与上一枚已落位者合并：目的地=上一枚的目的地
+          const toRow = isRow ? fixedIndex : lastKeeper._destRow;
+          const toCol = isRow ? lastKeeper._destCol : fixedIndex;
+          plan.set(t.id, { toRow, toCol, mergeIntoId: lastKeeper.id });
+          lastKeeper._mergedThisStep = true;
+          gained += lastKeeper.value * 2;
+          // dest 不前进（因为合并占据的还是上一格）
+        } else {
+          // 落到 dest
+          const toRow = isRow ? fixedIndex : dest;
+          const toCol = isRow ? dest : fixedIndex;
+          plan.set(t.id, { toRow, toCol });
+          // 记录该“落位者”的目的格，供后续可能与之合并的元素引用
+          t._destRow = toRow;
+          t._destCol = toCol;
+          lastKeeper = t;
+          dest += (toward === 'neg' ? 1 : -1);
         }
+      }
+    };
+
+    if (dir === 'left' || dir === 'right') {
+      const toward = dir === 'left' ? 'neg' : 'pos';
+      for (let r = 0; r < SIZE; r++) {
+        const line = tiles
+          .filter(t => t.row === r)
+          .sort((a, b) => dir === 'left' ? a.col - b.col : b.col - a.col);
+        applyLine(line, true, r, toward);
+      }
+    } else if (dir === 'up' || dir === 'down') {
+      const toward = dir === 'up' ? 'neg' : 'pos';
+      for (let c = 0; c < SIZE; c++) {
+        const line = tiles
+          .filter(t => t.col === c)
+          .sort((a, b) => dir === 'up' ? a.row - b.row : b.row - a.row);
+        applyLine(line, false, c, toward);
       }
     } else {
-      for (let c = 0; c < SIZE; c++) {
-        const line = tiles.filter(t => t.col === c)
-          .sort((a, b) => dir === 'up' ? a.row - b.row : b.row - a.row);
-        if (!line.length) continue;
-
-        let dest = (dir === 'up') ? 0 : SIZE - 1;
-        for (let i = 0; i < line.length; i++) {
-          const t = line[i];
-          const tryMerge = target[dest]?.[c];
-          if (tryMerge && tryMerge.value === t.value && !tryMerge._mergedThisStep) {
-            plan.set(t.id, { toRow: dest, toCol: c, mergeIntoId: tryMerge.id });
-            tryMerge._mergedThisStep = true;
-            gained += tryMerge.value * 2;
-          } else {
-            plan.set(t.id, { toRow: dest, toCol: c });
-            target[dest][c] = target[dest][c] || t;
-            dest += (dir === 'up' ? 1 : -1);
-          }
-        }
-      }
+      return;
     }
 
+    // 是否真的有变化
     let moved = false;
     for (const t of tiles) {
       const p = plan.get(t.id);
@@ -415,13 +408,12 @@
 
     isAnimating = true;
 
+    // 开始位移动画
     const movingList = [];
     for (const t of tiles) {
       const p = plan.get(t.id);
       if (!p) continue;
-      if (p.toRow !== t.row || p.toCol !== t.col || p.mergeIntoId) {
-        movingList.push(t.id);
-      }
+      if (p.toRow !== t.row || p.toCol !== t.col || p.mergeIntoId) movingList.push(t.id);
       moveTileVisual(t, p.toRow, p.toCol);
     }
 
@@ -444,6 +436,7 @@
     });
 
     waitForMoves().then(() => {
+      // 先删除被合并者，再让存活者数值翻倍
       const mergeTargets = new Map();
       for (const t of tiles.slice()) {
         const p = plan.get(t.id);
@@ -456,18 +449,25 @@
         const keeper = tiles.find(x => x.id === targetId);
         if (keeper) setTileValue(keeper, keeper.value * 2);
       }
+
+      // 更新逻辑坐标
       for (const t of tiles) {
         const p = plan.get(t.id);
         if (!p) continue;
         t.row = p.toRow; t.col = p.toCol;
       }
 
+      // 加分
       if (gained > 0) updateScore(gained);
 
+      // 生成新块
       const pos = randomEmptyCell();
       if (pos) createTile(rnd() ? 2 : 4, pos[0], pos[1], true);
 
-      tiles.forEach(t => delete t._mergedThisStep);
+      // 清理临时标记
+      tiles.forEach(t => { delete t._mergedThisStep; delete t._destRow; delete t._destCol; });
+
+      // 保存 & 结束判断
       saveState();
 
       if (hasWon() && !continued) {

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>2048 · 6×6 · 32768（带动画）</title>
+<meta name="theme-color" content="#faf8ef" />
+<style>
+  :root { --gap: 10px; --radius: 10px; --size: 6; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: #faf8ef;
+    color: #3c3a32;
+    font: 16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,
+          "Noto Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display: grid; place-items: start center;
+  }
+  .wrap { width: min(92vw, 720px); padding: 24px 16px 32px; }
+  h1 { margin: 0 0 12px; font-size: clamp(22px, 4.5vw, 34px); }
+  .sub { margin: 2px 0 16px; color: #8f8a81; font-size: 14px; }
+  .topbar { display: flex; align-items: stretch; gap: 10px; margin-bottom: 14px; }
+  .badge {
+    background: #bbada0; color: #fff; border-radius: 8px; padding: 6px 10px; min-width: 90px;
+    display: grid; place-items: center; text-align: center;
+  }
+  .badge small { display: block; opacity: .9; font-size: 12px; letter-spacing: .5px; }
+  .badge b { display: block; font-size: 22px; margin-top: 2px; }
+  button {
+    border: 0; border-radius: 8px; padding: 0 14px; cursor: pointer; font-weight: 700;
+    background: #8f7a66; color: #fff; transition: transform .06s ease, opacity .2s ease;
+  }
+  button:active { transform: translateY(1px) scale(0.98); }
+  #newGame { min-width: 96px; }
+  .spacer { flex: 1; }
+
+  /* 棋盘：背景网格 + 漂浮的方块层 */
+  .board {
+    --size: 6;
+    --cell: calc((100% - (var(--size) + 1) * var(--gap)) / var(--size));
+    position: relative;
+    background: #bbada0; padding: var(--gap); border-radius: var(--radius);
+    width: min(92vw, 560px); aspect-ratio: 1 / 1;
+    margin-inline: auto;
+    touch-action: none;
+    overflow: hidden;
+  }
+  .grid {
+    position: absolute; inset: var(--gap);
+    display: grid; gap: var(--gap);
+    grid-template-columns: repeat(var(--size), 1fr);
+    grid-template-rows: repeat(var(--size), 1fr);
+  }
+  .bg-cell {
+    background:#cdc1b4; border-radius: 6px;
+  }
+
+  /* 活动方块 */
+  .tiles { position: absolute; inset: 0; }
+  .tile {
+    position: absolute;
+    width: var(--cell); height: var(--cell);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-weight: 700; color: #776e65;
+    user-select: none;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.04);
+    /* 位移 + 缩放通过同一个 transform，以 CSS 变量控制 */
+    --x: 0; --y: 0; --scale: 1;
+    transform:
+      translate(
+        calc(var(--gap) + var(--x)*(var(--cell) + var(--gap))),
+        calc(var(--gap) + var(--y)*(var(--cell) + var(--gap)))
+      )
+      scale(var(--scale));
+    transition: transform 130ms ease-in-out;
+    will-change: transform;
+    font-size: 2.2rem; /* JS 会按位数微调 */
+  }
+  .tile.pop { transition: transform 110ms ease-in-out; }
+  .tile.spawn { transition: transform 120ms ease-out; }
+
+  /* 数字配色（含 32768） */
+  .tile[data-val="2"]    { background:#eee4da; color:#776e65; }
+  .tile[data-val="4"]    { background:#ede0c8; color:#776e65; }
+  .tile[data-val="8"]    { background:#f2b179; color:#f9f6f2; }
+  .tile[data-val="16"]   { background:#f59563; color:#f9f6f2; }
+  .tile[data-val="32"]   { background:#f67c5f; color:#f9f6f2; }
+  .tile[data-val="64"]   { background:#f65e3b; color:#f9f6f2; }
+  .tile[data-val="128"]  { background:#edcf72; color:#f9f6f2; }
+  .tile[data-val="256"]  { background:#edcc61; color:#f9f6f2; }
+  .tile[data-val="512"]  { background:#edc850; color:#f9f6f2; }
+  .tile[data-val="1024"] { background:#edc53f; color:#f9f6f2; }
+  .tile[data-val="2048"] { background:#edc22e; color:#f9f6f2; }
+  .tile[data-val="4096"],
+  .tile[data-val="8192"],
+  .tile[data-val="16384"],
+  .tile[data-val="32768"] {
+    background:#3c3a32; color:#f9f6f2;
+  }
+
+  .hint { color:#8f8a81; font-size: 13px; margin: 10px 2px 0; }
+  .kbd { font-weight:700; background:#eee; border-radius:4px; padding:2px 6px; }
+
+  /* 结果浮层 */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.33); display: grid; place-items: center;
+    z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    background:#fff; border-radius:12px; padding:18px; width:min(88vw, 420px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.15);
+    text-align: center;
+  }
+  .panel h2 { margin: 4px 0 10px; }
+  .panel p { margin: 0 0 14px; color:#8f8a81; }
+  .panel .btns { display:flex; gap:10px; justify-content:center; }
+  .panel .btns button { padding:10px 14px; }
+</style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="2048 6×6">
+    <h1>2048 · 6×6 · 32768</h1>
+    <div class="sub">带平滑滑动动画；合成到 32768 即胜利。方向键 / WASD / HJKL 与触控滑动均可。</div>
+    <div class="topbar">
+      <div class="badge" aria-live="polite"><small>得分</small><b id="score">0</b></div>
+      <div class="badge"><small>最佳</small><b id="best">0</b></div>
+      <div class="spacer"></div>
+      <button id="newGame" title="重新开始">新游戏</button>
+    </div>
+
+    <div id="board" class="board" aria-label="棋盘" aria-live="polite">
+      <div class="grid" id="grid"></div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+    <p class="hint">键盘：<span class="kbd">←↑→↓</span> 或 <span class="kbd">WASD</span> / <span class="kbd">HJKL</span>；手机：滑动即可。</p>
+  </div>
+
+  <div id="overlay" class="overlay hidden" aria-hidden="true">
+    <div class="panel" role="dialog" aria-modal="true">
+      <h2 id="msg">你赢了！</h2>
+      <p>选择继续或重新开始。</p>
+      <div class="btns">
+        <button id="continue">继续游戏</button>
+        <button id="restart">新游戏</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const SIZE = 6;
+  const WIN_VALUE = 32768;
+  const LS_BEST = 'best-6x6-32768';
+  const LS_STATE = 'state-6x6-32768-anim';
+
+  const boardEl = document.getElementById('board');
+  const gridEl  = document.getElementById('grid');
+  const tilesLayer = document.getElementById('tiles');
+  const scoreEl = document.getElementById('score');
+  const bestEl  = document.getElementById('best');
+  const overlay = document.getElementById('overlay');
+  const msgEl   = document.getElementById('msg');
+
+  boardEl.style.setProperty('--size', SIZE);
+
+  // 生成背景格子
+  gridEl.innerHTML = '';
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'bg-cell';
+    gridEl.appendChild(cell);
+  }
+
+  // ---- 状态 ----
+  let tiles = [];           // {id, value, row, col}
+  let nextId = 1;
+  let score = 0;
+  let best = parseInt(localStorage.getItem(LS_BEST) || '0', 10);
+  let continued = false;
+  let isAnimating = false;
+  bestEl.textContent = best;
+
+  // ---- 工具函数 ----
+  function rnd(prob = 0.9) { return Math.random() < prob; }
+  function byId(id) { return document.getElementById('t' + id); }
+
+  function matrixFromTiles() {
+    const m = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+    tiles.forEach(t => { m[t.row][t.col] = t.value; });
+    return m;
+  }
+
+  function randomEmptyCell() {
+    const occupied = new Set(tiles.map(t => t.row + '-' + t.col));
+    const empties = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const key = r + '-' + c;
+        if (!occupied.has(key)) empties.push([r, c]);
+      }
+    }
+    if (!empties.length) return null;
+    return empties[Math.floor(Math.random() * empties.length)];
+  }
+
+  function updateScore(delta = 0, reset = false) {
+    score = reset ? 0 : (score + delta);
+    scoreEl.textContent = score;
+    if (score > best) {
+      best = score; bestEl.textContent = best;
+      localStorage.setItem(LS_BEST, String(best));
+    }
+  }
+
+  function setDigitFont(el, val) {
+    if (!val) return;
+    const d = String(val).length;
+    const fs = d <= 2 ? 36 : d === 3 ? 32 : d === 4 ? 28 : d === 5 ? 24 : 22;
+    el.style.fontSize = fs + 'px';
+  }
+
+  function createTile(value, row, col, asSpawn = true) {
+    const id = nextId++;
+    const t = { id, value, row, col };
+    tiles.push(t);
+
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.id = 't' + id;
+    el.dataset.val = value;
+    el.textContent = value;
+    setDigitFont(el, value);
+    el.style.setProperty('--x', col);
+    el.style.setProperty('--y', row);
+    tilesLayer.appendChild(el);
+
+    if (asSpawn) {
+      el.classList.add('spawn');
+      el.style.setProperty('--scale', 0);
+      requestAnimationFrame(() => {
+        // 下一帧恢复到 1，触发出现动画
+        el.style.setProperty('--scale', 1);
+      });
+    }
+
+    return t;
+  }
+
+  function removeTile(t) {
+    tiles = tiles.filter(x => x.id !== t.id);
+    const el = byId(t.id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function moveTileVisual(t, toRow, toCol) {
+    const el = byId(t.id);
+    if (!el) return;
+    el.style.setProperty('--x', toCol);
+    el.style.setProperty('--y', toRow);
+  }
+
+  function setTileValue(t, newVal) {
+    t.value = newVal;
+    const el = byId(t.id);
+    if (!el) return;
+    el.dataset.val = newVal;
+    el.textContent = newVal;
+    setDigitFont(el, newVal);
+    // 合并弹跳（轻微放大再回落）
+    el.classList.add('pop');
+    el.style.setProperty('--scale', 1.14);
+    setTimeout(() => { el.style.setProperty('--scale', 1); el.classList.remove('pop'); }, 110);
+  }
+
+  function saveState() {
+    const state = {
+      tiles: tiles.map(t => ({ id: t.id, value: t.value, row: t.row, col: t.col })),
+      nextId, score, continued
+    };
+    try { localStorage.setItem(LS_STATE, JSON.stringify(state)); } catch {}
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(LS_STATE);
+      if (!raw) return false;
+      const st = JSON.parse(raw);
+      if (!st || !Array.isArray(st.tiles)) return false;
+      tiles = [];
+      tilesLayer.innerHTML = '';
+      st.tiles.forEach(s => {
+        const t = { id: s.id, value: s.value, row: s.row, col: s.col };
+        tiles.push(t);
+        const el = document.createElement('div');
+        el.className = 'tile';
+        el.id = 't' + t.id;
+        el.dataset.val = t.value;
+        el.textContent = t.value;
+        setDigitFont(el, t.value);
+        el.style.setProperty('--x', t.col);
+        el.style.setProperty('--y', t.row);
+        tilesLayer.appendChild(el);
+      });
+      nextId = st.nextId || (Math.max(0, ...tiles.map(t => t.id)) + 1);
+      score = st.score || 0; scoreEl.textContent = score;
+      bestEl.textContent = best;
+      continued = !!st.continued;
+      return true;
+    } catch { return false; }
+  }
+
+  function canMove() {
+    const m = matrixFromTiles();
+    // 有空位
+    for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) if (m[r][c] === 0) return true;
+    // 有相邻可合并
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const v = m[r][c];
+        if (c + 1 < SIZE && v === m[r][c + 1]) return true;
+        if (r + 1 < SIZE && v === m[r + 1][c]) return true;
+      }
+    }
+    return false;
+  }
+
+  function hasWon() {
+    return tiles.some(t => t.value === WIN_VALUE);
+  }
+
+  function showOverlay(text) {
+    msgEl.textContent = text;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+  function hideOverlay() {
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  // ---- 核心：计算一次移动的“目标位置与合并计划”，再做动画 ----
+  function move(dir) {
+    if (isAnimating) return;
+
+    const dirVec = {
+      left:  { axis: 'row', sign: +1, iterate: i => i,  start: 0,     end: SIZE-1, step: +1 },
+      right: { axis: 'row', sign: -1, iterate: i => i,  start: SIZE-1,end: 0,     step: -1 },
+      up:    { axis: 'col', sign: +1, iterate: j => j,  start: 0,     end: SIZE-1, step: +1 },
+      down:  { axis: 'col', sign: -1, iterate: j => j,  start: SIZE-1,end: 0,     step: -1 },
+    }[dir];
+
+    if (!dirVec) return;
+
+    // 目标占位表：存放“将要停在该格子的存活方块”
+    const target = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+    const placed = new Set(); // 已经放置过的方块 id（作为存活者）
+    const plan = new Map();   // id -> {toRow, toCol, mergeIntoId?}
+    let gained = 0;
+
+    // 行/列逐条处理
+    if (dir === 'left' || dir === 'right') {
+      for (let r = 0; r < SIZE; r++) {
+        const line = tiles.filter(t => t.row === r)
+          .sort((a, b) => dir === 'left' ? a.col - b.col : b.col - a.col);
+        if (!line.length) continue;
+
+        let dest = (dir === 'left') ? 0 : SIZE - 1;
+        for (let i = 0; i < line.length; i++) {
+          const t = line[i];
+          const tryMerge = target[r][dest];
+          if (tryMerge && tryMerge.value === t.value && !tryMerge._mergedThisStep) {
+            // 合并到 tryMerge
+            plan.set(t.id, { toRow: r, toCol: dest, mergeIntoId: tryMerge.id });
+            tryMerge._mergedThisStep = true;
+            gained += tryMerge.value * 2;
+          } else {
+            // 移动/保持到 dest
+            plan.set(t.id, { toRow: r, toCol: dest });
+            target[r][dest] = target[r][dest] || t; // 第一位成为存活者
+            dest += (dir === 'left' ? 1 : -1);
+          }
+        }
+      }
+    } else {
+      for (let c = 0; c < SIZE; c++) {
+        const line = tiles.filter(t => t.col === c)
+          .sort((a, b) => dir === 'up' ? a.row - b.row : b.row - a.row);
+        if (!line.length) continue;
+
+        let dest = (dir === 'up') ? 0 : SIZE - 1;
+        for (let i = 0; i < line.length; i++) {
+          const t = line[i];
+          const tryMerge = target[dest]?.[c];
+          if (tryMerge && tryMerge.value === t.value && !tryMerge._mergedThisStep) {
+            plan.set(t.id, { toRow: dest, toCol: c, mergeIntoId: tryMerge.id });
+            tryMerge._mergedThisStep = true;
+            gained += tryMerge.value * 2;
+          } else {
+            plan.set(t.id, { toRow: dest, toCol: c });
+            target[dest][c] = target[dest][c] || t;
+            dest += (dir === 'up' ? 1 : -1);
+          }
+        }
+      }
+    }
+
+    // 是否真的有变化（移动或合并）
+    let moved = false;
+    for (const t of tiles) {
+      const p = plan.get(t.id);
+      if (!p) continue;
+      if (p.toRow !== t.row || p.toCol !== t.col || p.mergeIntoId) {
+        moved = true; break;
+      }
+    }
+    if (!moved) return;
+
+    isAnimating = true;
+
+    // 先触发位移动画
+    const movingList = [];
+    for (const t of tiles) {
+      const p = plan.get(t.id);
+      if (!p) continue;
+      if (p.toRow !== t.row || p.toCol !== t.col || p.mergeIntoId) {
+        movingList.push(t.id);
+      }
+      moveTileVisual(t, p.toRow, p.toCol);
+    }
+
+    // 等待所有位移完成（监听 transform 过渡）
+    const waitForMoves = () => new Promise(resolve => {
+      let remaining = movingList.length;
+      if (remaining === 0) { resolve(); return; }
+      const done = (e) => {
+        if (e.propertyName !== 'transform') return;
+        const id = parseInt(e.currentTarget.id.slice(1), 10);
+        if (!movingList.includes(id)) return;
+        e.currentTarget.removeEventListener('transitionend', done);
+        remaining--;
+        if (remaining <= 0) resolve();
+      };
+      movingList.forEach(id => {
+        const el = byId(id);
+        if (el) el.addEventListener('transitionend', done, { once: false });
+      });
+      // 兜底：200ms 后强制继续
+      setTimeout(resolve, 220);
+    });
+
+    waitForMoves().then(() => {
+      // 完成位移后，做合并：被合并者删除，存活者数值翻倍并弹跳
+      const mergeTargets = new Map(); // targetId -> count（仅用于清理标记）
+      for (const t of tiles.slice()) {
+        const p = plan.get(t.id);
+        if (p?.mergeIntoId) {
+          // 被合并进别人的：位置已经到了目标格，接下来删除
+          removeTile(t);
+          mergeTargets.set(p.mergeIntoId, (mergeTargets.get(p.mergeIntoId) || 0) + 1);
+        }
+      }
+      // 存活者翻倍
+      for (const [targetId, times] of mergeTargets) {
+        const keeper = tiles.find(x => x.id === targetId);
+        if (keeper) setTileValue(keeper, keeper.value * 2);
+      }
+
+      // 更新 tiles 的行列到目标（存活者 & 未参与合并者）
+      for (const t of tiles) {
+        const p = plan.get(t.id);
+        if (!p) continue;
+        t.row = p.toRow; t.col = p.toCol;
+      }
+
+      // 加分
+      if (gained > 0) updateScore(gained);
+
+      // 新增一个随机方块
+      const pos = randomEmptyCell();
+      if (pos) createTile(rnd() ? 2 : 4, pos[0], pos[1], true);
+
+      // 清理标记
+      tiles.forEach(t => delete t._mergedThisStep);
+
+      // 保存状态
+      saveState();
+
+      // 结束/胜利判断
+      if (hasWon() && !continued) {
+        isAnimating = false;
+        showOverlay(`你赢了！达成 ${WIN_VALUE}`);
+        return;
+      }
+      if (!canMove()) {
+        isAnimating = false;
+        showOverlay('没有可移动的步数，游戏结束');
+        return;
+      }
+
+      isAnimating = false;
+    });
+  }
+
+  // ---- 事件 ----
+  const keyMap = {
+    ArrowLeft: 'left',  ArrowRight: 'right', ArrowUp: 'up',   ArrowDown: 'down',
+    a: 'left', d: 'right', w: 'up', s: 'down',
+    h: 'left', l: 'right', k: 'up', j: 'down',
+  };
+  window.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (keyMap[k]) {
+      e.preventDefault();
+      move(keyMap[k]);
+    }
+  });
+
+  let startX = 0, startY = 0;
+  boardEl.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+  }, { passive: true });
+
+  boardEl.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (Math.max(ax, ay) < 24) return;
+    move(ax > ay ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  }, { passive: true });
+
+  document.getElementById('newGame').addEventListener('click', reset);
+  document.getElementById('restart').addEventListener('click', reset);
+  document.getElementById('continue').addEventListener('click', () => {
+    continued = true; hideOverlay(); saveState();
+  });
+
+  function reset() {
+    tiles = [];
+    tilesLayer.innerHTML = '';
+    continued = false;
+    updateScore(0, true);
+    hideOverlay();
+
+    // 初始放两块
+    const a = randomEmptyCell(); const b = randomEmptyCell();
+    if (a) createTile(rnd() ? 2 : 4, a[0], a[1], true);
+    if (b) createTile(rnd() ? 2 : 4, b[0], b[1], true);
+    saveState();
+  }
+
+  // 初始化
+  if (!loadState()) reset();
+  // 若加载来的状态刚好结束/胜利，提示
+  if (hasWon() && !continued) showOverlay(`你赢了！达成 ${WIN_VALUE}`);
+  else if (!canMove()) showOverlay('没有可移动的步数，游戏结束');
+})();
+</script>
+</body>
+</html>

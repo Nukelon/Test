@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>录音 + 实时波形（单文件）</title>
+  <style>
+    :root{
+      --bg:#0f1220; --card:#161a2b; --text:#e8ecff; --muted:#9aa0b8;
+      --accent:#6ea2ff; --accent-2:#8bffd6; --danger:#ff5d73;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:radial-gradient(1200px 600px at 20% -10%, #1b2040 0, transparent 60%),
+                 radial-gradient(900px 500px at 120% 10%, #1b4038 0, transparent 60%),
+                 var(--bg); color:var(--text);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{
+      width:min(920px, 100%); background:color-mix(in oklab, var(--card) 92%, #000 8%);
+      border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:20px 18px 22px;
+      box-shadow:0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(6px);
+    }
+    header{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+    header h1{font-size:18px; margin:0; letter-spacing:.2px}
+    header .status{margin-left:auto; font-size:13px; color:var(--muted)}
+    .row{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0}
+    button{
+      appearance:none; border:1px solid rgba(255,255,255,.08); background:#1e243b; color:var(--text);
+      padding:10px 14px; border-radius:10px; font-weight:600; letter-spacing:.2px; cursor:pointer;
+      transition:.2s transform, .2s opacity, .2s background;
+    }
+    button:hover{transform:translateY(-1px)}
+    button:disabled{opacity:.45; cursor:not-allowed}
+    .primary{background:linear-gradient(180deg, #2b6cff, #234fdd);}
+    .danger{background:linear-gradient(180deg, #ff6b81, #e14660); border-color:transparent}
+    .ghost{background:#1a1f33}
+    .pill{
+      padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700;
+      border:1px solid rgba(255,255,255,.1); color:var(--muted); background:#11162a;
+    }
+    .led{display:inline-flex; align-items:center; gap:8px}
+    .dot{
+      width:8px; height:8px; border-radius:999px; background:var(--muted);
+      box-shadow:0 0 0 0 rgba(255,93,115,0); transition:.25s;
+    }
+    .dot.rec{background:var(--danger); box-shadow:0 0 0 6px rgba(255,93,115,.15)}
+    .timer{font-variant-numeric:tabular-nums}
+    canvas{
+      width:100%; height:220px; display:block; border-radius:12px;
+      background:linear-gradient(180deg, #0c1022, #0a0e1c);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.35);
+    }
+    .hint{font-size:12px; color:var(--muted); margin-top:8px}
+    audio{width:100%; margin-top:12px}
+    a.download{display:inline-block; margin-top:10px; font-size:14px; color:var(--accent); text-decoration:none}
+    .right{margin-left:auto}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>🎙️ 录音与波形</h1>
+      <span class="status">需要在 HTTPS 或 localhost 上运行</span>
+    </header>
+
+    <div class="row">
+      <button id="btnStart" class="primary">开始录音</button>
+      <button id="btnPause" class="ghost" disabled>暂停</button>
+      <button id="btnResume" class="ghost" disabled>继续</button>
+      <button id="btnStop" class="danger" disabled>停止</button>
+      <span class="right pill led"><span id="dot" class="dot"></span><span id="state">空闲</span></span>
+      <span class="pill"><span id="timer" class="timer">00:00</span></span>
+    </div>
+
+    <canvas id="scope" aria-label="实时波形"></canvas>
+
+    <audio id="player" controls preload="metadata"></audio>
+    <div class="row" style="margin-top:6px">
+      <a id="download" class="download" href="#" download style="display:none">⬇️ 下载录音</a>
+      <span id="filesize" class="hint"></span>
+    </div>
+
+    <p class="hint">
+      提示：点击“开始录音”后会显示实时波形；“停止”后可回放并下载录音。回放时波形也会随声音变化。
+    </p>
+  </div>
+
+<script>
+(() => {
+  const $ = sel => document.querySelector(sel);
+  const btnStart = $('#btnStart');
+  const btnPause = $('#btnPause');
+  const btnResume = $('#btnResume');
+  const btnStop = $('#btnStop');
+  const stateEl = $('#state');
+  const dotEl = $('#dot');
+  const timerEl = $('#timer');
+  const canvas = $('#scope');
+  const audioEl = $('#player');
+  const dl = $('#download');
+  const fsEl = $('#filesize');
+
+  let mediaRecorder, chunks = [], recStartTs = 0, timerId = null;
+  let stream = null;
+  let ac = null, analyser = null, dataArray = null, bufferLen = 0;
+  let drawReq = 0;
+  let micSource = null;
+  let playerSource = null;
+  let currentVisual = 'idle'; // 'mic' | 'player' | 'idle'
+  let chosenMime = '';
+
+  // HiDPI canvas sizing
+  function resizeCanvas(){
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+  }
+  window.addEventListener('resize', resizeCanvas, {passive:true});
+  resizeCanvas();
+
+  function ensureAudioGraph(){
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (!analyser){
+      analyser = ac.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.85;
+      bufferLen = analyser.fftSize;
+      dataArray = new Uint8Array(bufferLen);
+    }
+  }
+
+  function pickMime(){
+    const cand = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4;codecs=mp4a.40.2',
+      'audio/mp4'
+    ];
+    for (const m of cand){
+      if (MediaRecorder.isTypeSupported?.(m)) return m;
+    }
+    return ''; // browser picks default
+  }
+
+  function setUIRecording(active){
+    btnStart.disabled = active;
+    btnPause.disabled = !active;
+    btnStop.disabled = !active;
+    btnResume.disabled = true;
+    stateEl.textContent = active ? '录音中' : '空闲';
+    dotEl.classList.toggle('rec', !!active);
+  }
+
+  function setUIPaused(paused){
+    btnPause.disabled = paused;
+    btnResume.disabled = !paused;
+    stateEl.textContent = paused ? '已暂停' : '录音中';
+    dotEl.classList.toggle('rec', !paused);
+  }
+
+  function formatTime(ms){
+    const sec = Math.max(0, Math.floor(ms/1000));
+    const m = String(Math.floor(sec/60)).padStart(2,'0');
+    const s = String(sec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function startTimer(){
+    stopTimer();
+    timerId = setInterval(() => {
+      timerEl.textContent = formatTime(Date.now() - recStartTs);
+    }, 250);
+  }
+  function stopTimer(){
+    if (timerId){ clearInterval(timerId); timerId = null; }
+  }
+
+  function connectMicToAnalyser(){
+    if (!stream) return;
+    ensureAudioGraph();
+    if (micSource) try{ micSource.disconnect(); }catch{}
+    micSource = ac.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    currentVisual = 'mic';
+    // Do not connect to destination to avoid feedback
+  }
+
+  function connectPlayerToAnalyser(){
+    ensureAudioGraph();
+    if (!playerSource){
+      playerSource = ac.createMediaElementSource(audioEl);
+    } else {
+      try{ playerSource.disconnect(); }catch{}
+    }
+    const gain = ac.createGain();
+    gain.gain.value = 1; // normal volume
+    playerSource.connect(analyser);
+    analyser.connect(gain).connect(ac.destination);
+    audioEl.muted = true; // avoid "双重播放"
+    currentVisual = 'player';
+  }
+
+  function disconnectAnalyser(){
+    try{ micSource?.disconnect(); }catch{}
+    micSource = null;
+    try{ playerSource?.disconnect(); }catch{}
+    // Keep analyser alive for next session
+    currentVisual = 'idle';
+  }
+
+  function draw(){
+    cancelAnimationFrame(drawReq);
+    const ctx = canvas.getContext('2d');
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const W = canvas.width, H = canvas.height;
+
+    function render(){
+      drawReq = requestAnimationFrame(render);
+
+      // background
+      ctx.clearRect(0,0,W,H);
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#0b1024'); grad.addColorStop(1,'#0a0e1c');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+
+      // grid lines
+      ctx.globalAlpha = .22;
+      ctx.strokeStyle = '#253055';
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath();
+      const rows = 4, cols = 24;
+      for (let i=1;i<rows;i++){
+        const y = (H/rows)*i|0; ctx.moveTo(0,y); ctx.lineTo(W,y);
+      }
+      for (let i=1;i<cols;i++){
+        const x = (W/cols)*i|0; ctx.moveTo(x,0); ctx.lineTo(x,H);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // zero axis
+      ctx.strokeStyle = 'rgba(255,255,255,.09)';
+      ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+
+      if (!analyser || currentVisual === 'idle') return;
+
+      analyser.getByteTimeDomainData(dataArray);
+
+      // waveform
+      ctx.lineWidth = 2 * dpr;
+      // main stroke
+      ctx.strokeStyle = '#8bffd6';
+      ctx.beginPath();
+      const slice = W / bufferLen;
+      for (let i=0;i<bufferLen;i++){
+        const v = dataArray[i] / 128.0; // 0..255 -> -1..1 -> 0..2
+        const y = (v * H/2);
+        const x = i * slice;
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+
+      // glow overlay
+      ctx.globalAlpha = .65;
+      ctx.strokeStyle = '#6ea2ff';
+      ctx.lineWidth = 1.2 * dpr;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    render();
+  }
+
+  async function startRecording(){
+    if (!navigator.mediaDevices?.getUserMedia){
+      alert('此浏览器不支持 getUserMedia。请使用新版 Chrome/Edge/Firefox/Safari。');
+      return;
+    }
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+    }catch(err){
+      console.error(err);
+      alert('无法获取麦克风权限：' + (err.message || err));
+      return;
+    }
+
+    ensureAudioGraph();
+    connectMicToAnalyser();
+    draw();
+
+    chosenMime = pickMime();
+    try{
+      mediaRecorder = new MediaRecorder(stream, chosenMime ? {mimeType: chosenMime} : undefined);
+    }catch(e){
+      console.warn('MediaRecorder 创建失败，尝试无 MIME：', e);
+      mediaRecorder = new MediaRecorder(stream);
+    }
+
+    chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstart = () => {
+      recStartTs = Date.now();
+      startTimer();
+      setUIRecording(true);
+    };
+    mediaRecorder.onpause = () => setUIPaused(true);
+    mediaRecorder.onresume = () => setUIPaused(false);
+
+    mediaRecorder.onstop = async () => {
+      stopTimer();
+      timerEl.textContent = '00:00';
+      setUIRecording(false);
+
+      // Build blob & URL
+      const type = chosenMime || (chunks[0]?.type || 'audio/webm');
+      const blob = new Blob(chunks, {type});
+      const url = URL.createObjectURL(blob);
+      audioEl.src = url;
+      audioEl.load();
+
+      // filename & download
+      const ext = type.includes('mp4') ? '.m4a' :
+                  type.includes('ogg') ? '.ogg' :
+                  '.webm';
+      const name = 'recording_' + new Date().toISOString().replace(/[:.]/g,'-') + ext;
+      dl.href = url; dl.download = name; dl.style.display = 'inline-block';
+      fsEl.textContent = `（文件大小：${(blob.size/1024/1024).toFixed(2)} MB）`;
+
+      // release mic
+      try{ stream.getTracks().forEach(t => t.stop()); }catch{}
+      stream = null;
+      disconnectAnalyser();
+
+      // enable visual on playback
+      audioEl.onplay = () => connectPlayerToAnalyser();
+      audioEl.onpause = () => { /* keep analyser for scrub visuals */ };
+      audioEl.onended = () => { /* keep graph */ };
+    };
+
+    mediaRecorder.start(100); // gather data every 100ms
+  }
+
+  function pauseRecording(){
+    if (mediaRecorder?.state === 'recording') mediaRecorder.pause();
+  }
+  function resumeRecording(){
+    if (mediaRecorder?.state === 'paused') mediaRecorder.resume();
+  }
+  function stopRecording(){
+    if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')){
+      mediaRecorder.stop();
+    }
+    setTimeout(() => { // small delay to ensure `onstop` ran
+      stateEl.textContent = '已停止';
+      dotEl.classList.remove('rec');
+    }, 50);
+    // keep canvas running to keep last frame / later playback visuals
+  }
+
+  // wire up UI
+  btnStart.addEventListener('click', startRecording);
+  btnPause.addEventListener('click', pauseRecording);
+  btnResume.addEventListener('click', resumeRecording);
+  btnStop.addEventListener('click', stopRecording);
+
+  // accessibility: space toggles pause/resume while recording
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space'){
+      if (mediaRecorder?.state === 'recording'){ pauseRecording(); }
+      else if (mediaRecorder?.state === 'paused'){ resumeRecording(); }
+    }
+  });
+
+  // start the painter
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>拼图小游戏 · 自定义分割数 · 触屏优化</title>
+<style>
+  :root{
+    --cell: 96px;            /* 单块尺寸（JS 会按屏幕&网格自适配） */
+    --gap-board: 4px;        /* 棋盘格间距（已按你之前要求调小） */
+    --gap-tray: 6px;         /* 托盘拼块间距 */
+    --radius: 8px;
+  }
+  *{box-sizing:border-box}
+  html,body{overscroll-behavior:contain}
+  body{margin:0; padding:16px; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","PingFang SC","Microsoft YaHei"; background:#f6f7fb; color:#222}
+  h1{font-size:18px; margin:0 0 12px}
+  .top{display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:10px}
+  input[type=file]{padding:8px; background:#fff; border:1px solid #e3e6ef; border-radius:8px}
+  select,button,input[type=number]{appearance:none; border:1px solid #d7dbec; background:#fff; padding:8px 12px; border-radius:8px; cursor:pointer}
+  input[type=number]{width:86px}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  .game{display:grid; grid-template-columns: auto minmax(220px,1fr); gap:16px; align-items:start}
+  .board{
+    display:grid; gap:var(--gap-board); padding:var(--gap-board); border-radius:var(--radius);
+    background:#e9ecf5; position:relative;
+    box-shadow:0 1px 0 rgba(0,0,0,.02), 0 6px 24px rgba(0,0,0,.06) inset;
+    touch-action:none;
+  }
+  .board::before{
+    content:""; position:absolute; left:var(--gap-board); right:var(--gap-board);
+    top:var(--gap-board); bottom:var(--gap-board); border-radius:10px;
+    background-image: var(--ref-url, none); background-size:100% 100%; background-position:center;
+    opacity: var(--ref-opacity, 0); transition: opacity .18s ease; pointer-events:none;
+  }
+  .cell{width:var(--cell); height:var(--cell); border-radius:6px; background:#fff; outline:2px dashed #e0e4f2; outline-offset:-6px; position:relative}
+  .tray-wrap{display:flex; flex-direction:column; gap:8px}
+  .tray-title{margin:6px 0 0; font-size:14px; color:#555; display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .tray{display:flex; flex-wrap:wrap; gap:var(--gap-tray); background:#fff; padding:10px; min-height: calc(var(--cell)*2 + var(--gap-tray));
+    border-radius:var(--radius); box-shadow:0 6px 24px rgba(0,0,0,.06); touch-action:none}
+  .piece{
+    width:var(--cell); height:var(--cell); border-radius:6px; user-select:none; -webkit-user-drag:none;
+    background-position:center; background-size:cover; background-repeat:no-repeat;
+    border:1px solid #e1e5f1; box-shadow:0 1px 2px rgba(0,0,0,.06); touch-action:none;
+  }
+  .piece.dragging{
+    opacity:.95; box-shadow:0 10px 24px rgba(0,0,0,.18); border-color:#c9d0ea;
+    pointer-events:none; position:fixed; z-index:9999; transform:scale(1.05);
+  }
+  .drop-hint{outline-color:#b8c4ff !important; background:#f6f8ff}
+  .panel{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .status{font-size:14px; color:#666}
+  .status a{color:#1a73e8; text-decoration:none}
+  .status a:hover{text-decoration:underline}
+  .win{
+    position:absolute; left:var(--gap-board); right:var(--gap-board); top:var(--gap-board); bottom:var(--gap-board);
+    border-radius:10px; background:rgba(255,255,255,.85);
+    display:none; align-items:center; justify-content:center; font-size:28px; font-weight:700; color:#1aa85b;
+    backdrop-filter: blur(2px);
+  }
+  .board.win-show .win{display:flex}
+  .note{font-size:13px; color:#888; margin-top:6px}
+  .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.72); padding:16px}
+  .overlay.show{display:flex}
+  .overlay img{max-width:92vw; max-height:92vh; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,.6)}
+  @media (max-width:820px){ .game{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <h1>拼图小游戏（上传图片 → 自动裁切 → 拖动摆放）</h1>
+
+  <div class="top">
+    <input id="file" type="file" accept="image/*" />
+
+    <!-- 快选（方阵） -->
+    <select id="gridQuick" title="快速选择（方阵）">
+      <option value="2">2×2</option>
+      <option value="3">3×3</option>
+      <option value="4" selected>4×4</option>
+      <option value="5">5×5</option>
+      <option value="6">6×6</option>
+    </select>
+
+    <!-- 自定义：列×行（1..256） -->
+    <label style="display:flex;align-items:center;gap:6px">
+      自定义：
+      <input id="cols" type="number" min="1" max="256" value="4" title="水平分割（列）" />
+      ×
+      <input id="rows" type="number" min="1" max="256" value="4" title="竖直分割（行）" />
+      <button id="apply">应用</button>
+    </label>
+
+    <label style="display:flex;align-items:center;gap:6px">
+      <input id="refToggle" type="checkbox" />
+      参考图
+    </label>
+
+    <div class="panel">
+      <button id="shuffle" disabled>打乱</button>
+      <button id="reset" disabled>重置</button>
+      <button id="view" disabled>查看完整图</button>
+      <span class="status" id="status" aria-live="polite">请选择一张图片开始</span>
+    </div>
+  </div>
+
+  <div class="game">
+    <div id="board" class="board" aria-label="拼图棋盘"></div>
+    <div class="tray-wrap">
+      <div class="tray-title">拼图块（拖到左侧棋盘）：</div>
+      <div id="tray" class="tray" aria-label="拼图碎片区"></div>
+      <div class="note">提示：拖到已占用的格子会自动交换；拖到右侧白色区域可放回。</div>
+    </div>
+  </div>
+
+  <!-- 完整图预览 -->
+  <div id="overlay" class="overlay" role="dialog" aria-label="完整图预览">
+    <img id="bigImg" alt="完整图片预览" />
+  </div>
+
+<script>
+(() => {
+  'use strict';
+  const fileInput = document.getElementById('file');
+  const board = document.getElementById('board');
+  const tray = document.getElementById('tray');
+  const shuffleBtn = document.getElementById('shuffle');
+  const resetBtn = document.getElementById('reset');
+  const statusEl = document.getElementById('status');
+  const refToggle = document.getElementById('refToggle');
+  const viewBtn = document.getElementById('view');
+  const overlay = document.getElementById('overlay');
+  const bigImg = document.getElementById('bigImg');
+
+  const gridQuick = document.getElementById('gridQuick');
+  const inputCols = document.getElementById('cols');
+  const inputRows = document.getElementById('rows');
+  const applyBtn  = document.getElementById('apply');
+
+  // ====== 参数 ======
+  const MASTER_SIZE = 800;          // 内部统一缩放到正方形
+  let COLS = 4;                     // 水平分割数（列）
+  let ROWS = 4;                     // 竖直分割数（行）
+  let GAP_BOARD = 4;
+
+  // ====== 状态 ======
+  let pieces = [];                  // [{id, correct, dataURL}]
+  let dragging = null;              // {el, originParent, offsetX, offsetY}
+  let inPlay = false;
+  let masterCanvas = null;          // 生成的 800×800 画布
+  let masterURL = '';               // dataURL 供参考图/预览
+
+  // ====== 初始化 ======
+  buildBoardCells();
+  autoFitCell();
+  window.addEventListener('resize', autoFitCell);
+
+  // ====== 文件加载与裁切 ======
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    resetGameUI(true);
+    statusEl.textContent = '正在处理图片…';
+    try{
+      const img = await readImage(file);
+      masterCanvas = cropAndScaleToSquare(img, MASTER_SIZE);
+      masterURL = masterCanvas.toDataURL('image/jpeg', .92);
+      setReferenceImage(masterURL);
+      reSliceAndBuild();
+      enableControls(true);
+      inPlay = true;
+      statusEl.textContent = `已生成 ${COLS}×${ROWS} 拼图，拖动开始摆放吧！`;
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = '处理失败，请换一张图片重试。';
+      enableControls(false);
+    }
+  });
+
+  function enableControls(ok){
+    shuffleBtn.disabled = !ok;
+    resetBtn.disabled = !ok;
+    viewBtn.disabled = !ok;
+  }
+
+  function resetGameUI(clearTrayToo){
+    board.classList.remove('win-show');
+    board.querySelectorAll('.piece').forEach(p=>tray.appendChild(p));
+    if(clearTrayToo){ tray.innerHTML = ''; pieces = []; masterCanvas=null; masterURL=''; setReferenceImage(null); }
+  }
+
+  function readImage(file){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      img.onload = ()=>resolve(img);
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  function cropAndScaleToSquare(img, size){
+    const s = Math.min(img.naturalWidth, img.naturalHeight);
+    const sx = Math.floor((img.naturalWidth - s)/2);
+    const sy = Math.floor((img.naturalHeight - s)/2);
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+    return canvas;
+  }
+
+  function sliceToPieces(canvas){
+    const pw = MASTER_SIZE / COLS;   // 每块宽
+    const ph = MASTER_SIZE / ROWS;   // 每块高
+    const out = [];
+    for(let r=0; r<ROWS; r++){
+      for(let c=0; c<COLS; c++){
+        const cv = document.createElement('canvas');
+        cv.width = pw; cv.height = ph;
+        cv.getContext('2d').drawImage(canvas, c*pw, r*ph, pw, ph, 0, 0, pw, ph);
+        const dataURL = cv.toDataURL('image/png');
+        const idx = r*COLS + c; // 正确位置线性下标（按行）
+        out.push({ id:'p'+idx, correct: idx, dataURL });
+      }
+    }
+    return out;
+  }
+
+  function buildPieces(arr){
+    tray.innerHTML = '';
+    const shuffled = [...arr].sort(()=>Math.random()-0.5);
+    shuffled.forEach((p, i)=>{
+      const el = document.createElement('div');
+      el.className = 'piece';
+      el.style.backgroundImage = `url(${p.dataURL})`;
+      el.dataset.correct = String(p.correct);
+      el.id = p.id;
+      el.setAttribute('role','img');
+      el.setAttribute('aria-label', `拼图块 ${i+1}/${COLS*ROWS}`);
+      attachDragHandlers(el);
+      tray.appendChild(el);
+    });
+  }
+
+  function buildBoardCells(){
+    board.innerHTML = '';
+    board.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
+    board.style.gridTemplateRows    = `repeat(${ROWS}, var(--cell))`;
+    for(let i=0; i<COLS*ROWS; i++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.index = i;
+      board.appendChild(cell);
+    }
+    const win = document.createElement('div');
+    win.className = 'win';
+    win.textContent = '🎉 拼好了！';
+    board.appendChild(win);
+  }
+
+  function reSliceAndBuild(){
+    if(!masterCanvas) return;
+    pieces = sliceToPieces(masterCanvas);
+    buildBoardCells();
+    autoFitCell();
+    buildPieces(pieces);
+  }
+
+  // ====== 自适配单块尺寸（随屏幕/列数变化）======
+  function autoFitCell(){
+    const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    const boardMax = (vw < 820) ? (vw - 32) : 480; // 左侧棋盘最大宽
+    const pad = GAP_BOARD, gap = GAP_BOARD;
+    let cell = Math.floor( (boardMax - 2*pad - (COLS-1)*gap) / COLS );
+    cell = Math.max(42, Math.min(cell, 112)); // 约束范围
+    document.documentElement.style.setProperty('--cell', cell+'px');
+  }
+
+  // ====== 参考图开关 & 完整图查看 ======
+  function setReferenceImage(url){
+    if(url) board.style.setProperty('--ref-url', `url("${url}")`);
+    else board.style.removeProperty('--ref-url');
+    setRefOpacity(refToggle.checked ? 0.28 : 0);
+  }
+  function setRefOpacity(v){ board.style.setProperty('--ref-opacity', v); }
+  refToggle.addEventListener('change', ()=> setRefOpacity(refToggle.checked ? 0.28 : 0));
+
+  viewBtn.addEventListener('click', ()=>{
+    if(!masterURL) return;
+    bigImg.src = masterURL;
+    overlay.classList.add('show');
+  });
+  overlay.addEventListener('click', ()=> overlay.classList.remove('show'));
+
+  // ====== 拖拽（指针 + 触摸 + 全局兜底）======
+  function startDragging(el, clientX, clientY){
+    if(!inPlay) return;
+    const rect = el.getBoundingClientRect();
+    const offsetX = clientX - rect.left;
+    const offsetY = clientY - rect.top;
+    dragging = { el, originParent: el.parentElement, offsetX, offsetY };
+    el.classList.add('dragging');
+    el.style.width = rect.width + 'px';
+    el.style.height = rect.height + 'px';
+    moveDraggedTo(clientX, clientY, offsetX, offsetY);
+    hintDropTarget(clientX, clientY, true);
+    window.addEventListener('pointermove', onPointerMove, {passive:false});
+    window.addEventListener('pointerup', onPointerUp, {once:true});
+  }
+  function onPointerMove(e){ if(!dragging) return; e.preventDefault(); onMoveCommon(e.clientX, e.clientY); }
+  function onPointerUp(e){ if(!dragging) return; onEndCommon(e.clientX, e.clientY, dragging.el); }
+  function onMoveCommon(clientX, clientY){
+    if(!dragging) return;
+    moveDraggedTo(clientX, clientY, dragging.offsetX, dragging.offsetY);
+    hintDropTarget(clientX, clientY, true);
+  }
+  function onEndCommon(clientX, clientY, el){
+    hintDropTarget(clientX, clientY, false);
+    finishDrop(clientX, clientY);
+    cleanupDrag(el);
+    checkWin();
+    window.removeEventListener('pointermove', onPointerMove);
+  }
+
+  function attachDragHandlers(el){
+    // Pointer Events
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      el.setPointerCapture?.(e.pointerId);
+      startDragging(el, e.clientX, e.clientY);
+    });
+    // 触摸兜底
+    el.addEventListener('touchstart', (e)=>{
+      if(!e.touches || !e.touches[0]) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      startDragging(el, t.clientX, t.clientY);
+      const touchMove = (ev)=>{
+        if(!dragging) return;
+        const tt = ev.touches[0];
+        if(!tt) return;
+        ev.preventDefault();
+        onMoveCommon(tt.clientX, tt.clientY);
+      };
+      const touchEnd = (ev)=>{
+        const tt = (ev.changedTouches && ev.changedTouches[0]) || {clientX:-999, clientY:-999};
+        onEndCommon(tt.clientX, tt.clientY, el);
+        window.removeEventListener('touchmove', touchMove);
+        window.removeEventListener('touchend', touchEnd);
+        window.removeEventListener('touchcancel', touchCancel);
+      };
+      const touchCancel = ()=>{
+        if(dragging){
+          (dragging.originParent || tray).appendChild(el);
+          cleanupDrag(el);
+          hintDropTarget(-999,-999,false);
+        }
+        window.removeEventListener('touchmove', touchMove);
+        window.removeEventListener('touchend', touchEnd);
+        window.removeEventListener('touchcancel', touchCancel);
+      };
+      window.addEventListener('touchmove', touchMove, {passive:false});
+      window.addEventListener('touchend', touchEnd, {once:true});
+      window.addEventListener('touchcancel', touchCancel, {once:true});
+    }, {passive:false});
+  }
+
+  function moveDraggedTo(clientX, clientY, ox, oy){
+    const x = clientX - ox;
+    const y = clientY - oy + window.scrollY;
+    const el = dragging.el;
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+    if(el.parentElement !== document.body){
+      document.body.appendChild(el);
+    }
+  }
+
+  function getDropTarget(clientX, clientY){
+    const el = document.elementFromPoint(clientX, clientY);
+    if(!el) return null;
+    return el.closest('.cell, #tray');
+  }
+
+  function finishDrop(clientX, clientY){
+    const target = getDropTarget(clientX, clientY);
+    const piece = dragging.el;
+    const from = dragging.originParent;
+
+    if(target && (target.classList.contains('cell') || target.id === 'tray')){
+      if(target.id === 'tray'){
+        tray.appendChild(piece);
+      }else{
+        const occupied = target.querySelector('.piece');
+        if(occupied){
+          if(from && from.classList && from.classList.contains('cell')) from.appendChild(occupied);
+          else tray.appendChild(occupied);
+        }
+        target.appendChild(piece);
+      }
+      statusEl.textContent = '拖放成功 ✅';
+    }else{
+      tray.appendChild(piece); // 兜底回收，避免残留
+      statusEl.textContent = '未放在有效区域，已回收到托盘';
+    }
+  }
+
+  function cleanupDrag(el){
+    if(el.parentElement === document.body){
+      (dragging?.originParent || tray).appendChild(el);
+    }
+    el.classList.remove('dragging');
+    el.style.left = el.style.top = el.style.width = el.style.height = '';
+    dragging = null;
+  }
+
+  function hintDropTarget(clientX, clientY, on){
+    document.querySelectorAll('.drop-hint').forEach(n=>n.classList.remove('drop-hint'));
+    if(!on) return;
+    const tgt = getDropTarget(clientX, clientY);
+    if(tgt) tgt.classList.add('drop-hint');
+  }
+
+  // ====== 胜利检查 ======
+  function checkWin(){
+    const cells = board.querySelectorAll('.cell');
+    for(let i=0;i<cells.length;i++){
+      const p = cells[i].querySelector('.piece');
+      if(!p){ board.classList.remove('win-show'); return false; }
+      if(Number(p.dataset.correct) !== i){ board.classList.remove('win-show'); return false; }
+    }
+    board.classList.add('win-show');
+    statusEl.innerHTML = '恭喜完成！🎉 <a href="#" id="seeFull">查看完整图</a>';
+    const link = document.getElementById('seeFull');
+    if(link){ link.addEventListener('click', (e)=>{ e.preventDefault(); viewBtn.click(); }, {once:true}); }
+    return true;
+  }
+
+  // ====== 控件 ======
+  shuffleBtn.addEventListener('click', ()=>{
+    if(!pieces.length) return;
+    board.querySelectorAll('.piece').forEach(p=>tray.appendChild(p));
+    const arr = Array.from(tray.querySelectorAll('.piece'));
+    arr.sort(()=>Math.random()-0.5).forEach(p=>tray.appendChild(p));
+    board.classList.remove('win-show');
+    statusEl.textContent = '已打乱，请继续~';
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    if(!pieces.length) return;
+    board.querySelectorAll('.piece').forEach(p=>tray.appendChild(p));
+    board.classList.remove('win-show');
+    statusEl.textContent = '已重置到托盘。';
+  });
+
+  // 快选（方阵）
+  gridQuick.addEventListener('change', ()=>{
+    const n = parseInt(gridQuick.value,10);
+    setGrid(n, n, false);
+  });
+
+  // 自定义应用
+  applyBtn.addEventListener('click', ()=>{
+    let c = clampInt(inputCols.value, 1, 256);
+    let r = clampInt(inputRows.value, 1, 256);
+    inputCols.value = c; inputRows.value = r; // 回写校正值
+    setGrid(c, r, true);
+  });
+
+  function clampInt(v, min, max){
+    v = parseInt(v, 10);
+    if(isNaN(v)) v = min;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function setGrid(c, r, fromCustom){
+    COLS = c; ROWS = r;
+    // 同步快选：如果是自定义或非方阵，则把快选置空（不改变用户输入）
+    if(fromCustom || COLS !== ROWS){
+      gridQuick.selectedIndex = -1;
+    }else{
+      // 找到对应项，否则清空
+      const opt = Array.from(gridQuick.options).find(o => parseInt(o.value,10) === COLS);
+      if(opt) gridQuick.value = String(COLS); else gridQuick.selectedIndex = -1;
+    }
+    buildBoardCells();
+    autoFitCell();
+    if(masterCanvas){
+      reSliceAndBuild();
+      statusEl.textContent = `已切换到 ${COLS}×${ROWS}，并重新打乱。`;
+    }else{
+      statusEl.textContent = `已切换到 ${COLS}×${ROWS}。请先选择图片。`;
+    }
+  }
+
+})();
+</script>
+</body>
+</html>

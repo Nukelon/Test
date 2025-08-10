@@ -6,84 +6,41 @@
 <title>所有 Emoji（点击复制）</title>
 <style>
   :root{
-    --bg: #0b0c0f;
-    --fg: #e7e9ee;
-    --muted: #98a2b3;
-    --card: #111319;
-    --accent: #4f8cff;
-    --accent-2: #22c55e;
-    --border: #1c2030;
+    --bg:#0b0c0f; --fg:#e7e9ee; --muted:#98a2b3; --card:#111319; --accent:#4f8cff; --accent-2:#22c55e; --border:#1c2030;
   }
   @media (prefers-color-scheme: light){
-    :root{
-      --bg:#fafafa; --fg:#101828; --muted:#667085;
-      --card:#ffffff; --accent:#1d4ed8; --accent-2:#16a34a; --border:#e5e7eb;
-    }
+    :root{ --bg:#fafafa; --fg:#101828; --muted:#667085; --card:#ffffff; --accent:#1d4ed8; --accent-2:#16a34a; --border:#e5e7eb; }
   }
-  *{box-sizing: border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:var(--bg); color:var(--fg);
-    font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";
-  }
-  header{
-    position:sticky; top:0; z-index:10;
-    backdrop-filter:saturate(150%) blur(6px);
-    background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,0)) , var(--bg);
-    border-bottom:1px solid var(--border);
-  }
-  .wrap{max-width:1100px; margin:0 auto; padding:16px}
-  h1{margin:0 0 6px 0; font-size:20px; letter-spacing:.2px}
-  .controls{
-    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-  }
-  .chip{
-    padding:8px 10px; border:1px solid var(--border); background:var(--card);
-    border-radius:10px; color:var(--muted); display:inline-flex; align-items:center; gap:8px;
-  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";}
+  header{position:sticky;top:0;z-index:10;backdrop-filter:saturate(150%) blur(6px);background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,0)) , var(--bg);border-bottom:1px solid var(--border);}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  h1{margin:0 0 6px 0;font-size:20px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{padding:8px 10px;border:1px solid var(--border);background:var(--card);border-radius:10px;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
   .chip strong{color:var(--fg)}
-  input[type="search"]{
-    flex:1 1 260px; padding:10px 12px; border-radius:12px; border:1px solid var(--border);
-    background:var(--card); color:var(--fg); outline:none;
-  }
-  .note{color:var(--muted); font-size:12px}
-  main{max-width:1160px; margin:10px auto 60px; padding:0 16px}
+  input[type="search"]{flex:1 1 260px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--fg);outline:none}
+  .note{color:var(--muted);font-size:12px}
+  main{max-width:1160px;margin:10px auto 60px;padding:0 16px}
   .group{margin:20px 0}
-  .group h2{font-size:16px; margin:18px 0 10px 0; color:var(--muted); font-weight:600}
-  .subgroup{margin:10px 0 14px 0}
-  .subgroup h3{font-size:13px; margin:8px 0 8px 0; color:var(--muted); font-weight:600}
-  .grid{
-    display:grid; gap:8px;
-    grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
-  }
-  button.emoji{
-    appearance:none; border:none; border-radius:12px; cursor:pointer;
-    background:var(--card); border:1px solid var(--border);
-    min-height:64px; font-size:34px; line-height:1; display:flex; align-items:center; justify-content:center;
-    transition:transform .05s ease, box-shadow .15s ease, border-color .2s ease;
-    font-family: "Apple Color Emoji","Segoe UI Emoji",Noto Color Emoji,system-ui,Segoe UI,Roboto,Arial;
-    user-select:none; -webkit-tap-highlight-color: transparent;
-  }
-  button.emoji:hover{transform:translateY(-1px)}
-  button.emoji:active{transform:scale(.98)}
-  button.emoji.copied{
-    outline:2px solid var(--accent-2);
-    box-shadow:0 0 0 3px color-mix(in oklab, var(--accent-2) 30%, transparent);
-    border-color: color-mix(in oklab, var(--accent-2) 50%, var(--border));
-  }
-  .hr{height:1px; background:var(--border); margin:12px 0}
-  .toast{
-    position:fixed; right:14px; bottom:14px; z-index:20;
-    background:var(--card); border:1px solid var(--border); color:var(--fg);
-    padding:10px 12px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.2);
-    opacity:0; transform:translateY(8px); transition:opacity .2s, transform .2s;
-    pointer-events:none; font-size:13px;
-  }
-  .toast.show{opacity:1; transform:translateY(0)}
-  .skeleton{height:64px; border-radius:12px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); border:1px solid var(--border); }
-  footer{color:var(--muted); text-align:center; padding:30px 16px}
-  a{color:var(--accent); text-decoration:none}
+  .group h2{font-size:16px;margin:18px 0 10px;color:var(--muted);font-weight:600}
+  .subgroup{margin:10px 0 14px}
+  .subgroup h3{font-size:13px;margin:8px 0;color:var(--muted);font-weight:600}
+  .grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(56px,1fr))}
+  button.emoji{appearance:none;border:none;border-radius:12px;cursor:pointer;background:var(--card);border:1px solid var(--border);min-height:64px;font-size:34px;line-height:1;display:flex;align-items:center;justify-content:center;transition:transform .05s ease,box-shadow .15s ease,border-color .2s ease;font-family:"Apple Color Emoji","Segoe UI Emoji",Noto Color Emoji,system-ui,Segoe UI,Roboto,Arial;user-select:none;-webkit-tap-highlight-color:transparent}
+  button.emoji:hover{transform:translateY(-1px)} button.emoji:active{transform:scale(.98)}
+  button.emoji.copied{outline:2px solid var(--accent-2);box-shadow:0 0 0 3px color-mix(in oklab,var(--accent-2) 30%,transparent);border-color:color-mix(in oklab,var(--accent-2) 50%,var(--border))}
+  .hr{height:1px;background:var(--border);margin:12px 0}
+  .toast{position:fixed;right:14px;bottom:14px;z-index:20;background:var(--card);border:1px solid var(--border);color:var(--fg);padding:10px 12px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none;font-size:13px}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .skeleton{height:64px;border-radius:12px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);border:1px solid var(--border)}
+  footer{color:var(--muted);text-align:center;padding:30px 16px}
+  a{color:var(--accent);text-decoration:none}
   .hidden{display:none !important}
+  .error{border:1px solid var(--border);background:var(--card);padding:14px;border-radius:12px}
+  .error strong{color:#f87171}
+  .error ul{margin:8px 0 0 18px;color:var(--muted)}
+  .btn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer}
 </style>
 </head>
 <body>
@@ -91,11 +48,12 @@
     <div class="wrap">
       <h1>所有 Emoji（点击即可复制）</h1>
       <div class="controls">
-        <input id="q" type="search" placeholder="搜索名称 / 分组（例如：heart、旗帜、动物…）" />
+        <input id="q" type="search" placeholder="搜索名称 / 分组（如 heart、旗帜、动物…）" />
         <div class="chip" title="只展示标准形态（fully-qualified）">筛选：<strong>Fully-qualified</strong></div>
         <div class="chip"><span id="countShown">0</span> / <span id="countAll">0</span></div>
+        <button id="retry" class="btn" title="重新尝试加载">重试</button>
       </div>
-      <div class="note">数据来源：Unicode 官方 <code>emoji-test.txt / latest</code>（页面加载时实时获取）。</div>
+      <div class="note">数据来源优先次序：jsDelivr → GitHub Raw → Unicode 官方 → 文本代理。</div>
     </div>
   </header>
 
@@ -104,25 +62,32 @@
       <div class="hr"></div>
       <div class="grid" id="skeletons"></div>
     </div>
+    <div class="wrap hidden" id="errorBox"></div>
   </main>
 
   <div class="toast" id="toast">已复制</div>
-
-  <footer>
-    <div>如果网络受限无法获取清单，请刷新重试。点击任意 Emoji 会复制字符本身（非短码）。</div>
-  </footer>
+  <footer><div>点击任意 Emoji 会复制字符本身（非短码）。</div></footer>
 
 <script>
 (async function(){
-  const SOURCE = "https://unicode.org/Public/emoji/latest/emoji-test.txt"; // 始终指向最新版本
+  const SOURCES = [
+    "https://cdn.jsdelivr.net/gh/unicode-org/emoji@latest/emoji-test.txt",
+    "https://fastly.jsdelivr.net/gh/unicode-org/emoji@latest/emoji-test.txt",
+    "https://raw.githubusercontent.com/unicode-org/emoji/main/emoji-test.txt",
+    "https://unicode.org/Public/emoji/latest/emoji-test.txt",
+    // 只读代理（最后兜底）： 
+    "https://r.jina.ai/http://unicode.org/Public/emoji/latest/emoji-test.txt"
+  ];
+
   const app = document.getElementById('app');
   const toast = document.getElementById('toast');
   const q = document.getElementById('q');
   const countShown = document.getElementById('countShown');
   const countAll = document.getElementById('countAll');
   const skeletons = document.getElementById('skeletons');
+  const retryBtn = document.getElementById('retry');
+  const errorBox = document.getElementById('errorBox');
 
-  // 渲染一些骨架占位
   (function renderSkeleton(){
     const frag = document.createDocumentFragment();
     for(let i=0;i<72;i++){
@@ -133,74 +98,116 @@
     skeletons.appendChild(frag);
   })();
 
-  const text = await fetchText(SOURCE);
-  const { groups, allItems } = parseEmojiTest(text);
+  retryBtn.addEventListener('click', () => location.reload());
 
-  // 统计
-  countAll.textContent = String(allItems.length);
+  try{
+    const text = await fetchFromAny(SOURCES, 12000);
+    const { groups, allItems } = parseEmojiTest(text);
+    countAll.textContent = String(allItems.length);
 
-  // 按组渲染
-  app.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'wrap';
-  app.appendChild(wrap);
+    app.innerHTML = '';
+    const wrap = document.createElement('div'); wrap.className = 'wrap'; app.appendChild(wrap);
 
-  const emojiButtons = [];
-  for (const g of groups){
-    const gEl = document.createElement('section');
-    gEl.className = 'group';
-    const h2 = document.createElement('h2');
-    h2.textContent = `🏷 组：${g.name}`;
-    gEl.appendChild(h2);
+    const emojiButtons = [];
+    for (const g of groups){
+      const gEl = document.createElement('section'); gEl.className = 'group';
+      const h2 = document.createElement('h2'); h2.textContent = `🏷 组：${g.name}`; gEl.appendChild(h2);
 
-    for (const sg of g.subgroups){
-      const sgEl = document.createElement('div');
-      sgEl.className = 'subgroup';
-      const h3 = document.createElement('h3');
-      h3.textContent = `› ${sg.name}`;
-      sgEl.appendChild(h3);
+      for (const sg of g.subgroups){
+        const sgEl = document.createElement('div'); sgEl.className = 'subgroup';
+        const h3 = document.createElement('h3'); h3.textContent = `› ${sg.name}`; sgEl.appendChild(h3);
 
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      const frag = document.createDocumentFragment();
-
-      for (const item of sg.items){
-        const btn = document.createElement('button');
-        btn.className = 'emoji';
-        btn.type = 'button';
-        btn.textContent = item.emoji;
-        btn.title = `${item.name} — ${g.name} / ${sg.name}`;
-        btn.setAttribute('data-name', item.name.toLowerCase());
-        btn.setAttribute('data-group', g.name.toLowerCase());
-        btn.setAttribute('data-subgroup', sg.name.toLowerCase());
-        btn.setAttribute('data-emoji', item.emoji);
-        btn.addEventListener('click', onCopy);
-        frag.appendChild(btn);
-        emojiButtons.push(btn);
+        const grid = document.createElement('div'); grid.className = 'grid';
+        const frag = document.createDocumentFragment();
+        for (const item of sg.items){
+          const btn = document.createElement('button');
+          btn.className = 'emoji'; btn.type = 'button';
+          btn.textContent = item.emoji;
+          btn.title = `${item.name} — ${g.name} / ${sg.name}`;
+          btn.dataset.name = item.name.toLowerCase();
+          btn.dataset.group = g.name.toLowerCase();
+          btn.dataset.subgroup = sg.name.toLowerCase();
+          btn.dataset.emoji = item.emoji;
+          btn.addEventListener('click', onCopy);
+          frag.appendChild(btn);
+          emojiButtons.push(btn);
+        }
+        grid.appendChild(frag);
+        sgEl.appendChild(grid);
+        gEl.appendChild(sgEl);
       }
-      grid.appendChild(frag);
-      sgEl.appendChild(grid);
-      gEl.appendChild(sgEl);
+      wrap.appendChild(gEl);
     }
-    wrap.appendChild(gEl);
+
+    updateShownCount();
+
+    q.addEventListener('input', () => {
+      const term = q.value.trim().toLowerCase();
+      for (const btn of emojiButtons){
+        const match = !term || btn.dataset.name.includes(term)
+          || btn.dataset.group.includes(term)
+          || btn.dataset.subgroup.includes(term)
+          || btn.dataset.emoji === term;
+        btn.classList.toggle('hidden', !match);
+      }
+      updateShownCount();
+    });
+
+    function updateShownCount(){
+      const shown = [...document.querySelectorAll('button.emoji:not(.hidden)')].length;
+      countShown.textContent = String(shown);
+    }
+  }catch(err){
+    showError(err);
   }
 
-  // 初始计数
-  updateShownCount();
-
-  // 搜索过滤
-  q.addEventListener('input', () => {
-    const term = q.value.trim().toLowerCase();
-    for (const btn of emojiButtons){
-      const match = !term || btn.dataset.name.includes(term) ||
-        btn.dataset.group.includes(term) || btn.dataset.subgroup.includes(term) ||
-        btn.dataset.emoji === term;
-      btn.classList.toggle('hidden', !match);
+  async function fetchFromAny(urls, timeoutMs){
+    const errors = [];
+    for (const url of urls){
+      try{
+        const text = await fetchText(url, timeoutMs);
+        return text;
+      }catch(e){
+        errors.push({url, message: e.message});
+      }
     }
-    updateShownCount();
-  });
+    const msgs = errors.map(e => `• ${e.url}\n  ↳ ${e.message}`).join('\n');
+    throw new Error("所有数据源均加载失败：\n" + msgs);
+  }
 
-  // 点击复制
+  async function fetchText(url, timeoutMs){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), timeoutMs || 10000);
+    try{
+      const r = await fetch(url, {signal: ctrl.signal, cache: 'no-store', mode: 'cors'});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text = await r.text();
+      if (!text || text.length < 1000) throw new Error('返回内容异常');
+      return text;
+    }finally{
+      clearTimeout(t);
+    }
+  }
+
+  function showError(err){
+    document.getElementById('loading')?.classList.add('hidden');
+    errorBox.classList.remove('hidden');
+    errorBox.classList.add('error');
+    errorBox.innerHTML = `
+      <strong>加载 Emoji 清单失败</strong>
+      <p style="margin:8px 0 0">原因可能是网络或跨域限制。你可以：</p>
+      <ul>
+        <li>点击上面的「重试」。</li>
+        <li>改用其他网络或开启 VPN/代理后再试。</li>
+        <li>把此文件部署到任意 HTTPS 站点上访问（不建议 file:// ？没关系，本页已做兼容）。</li>
+      </ul>
+      <details style="margin-top:8px">
+        <summary>查看错误详情</summary>
+        <pre style="white-space:pre-wrap">${(err && err.message) ? err.message : String(err)}</pre>
+      </details>
+    `;
+  }
+
   async function onCopy(e){
     const btn = e.currentTarget;
     const emoji = btn.dataset.emoji;
@@ -208,105 +215,51 @@
       if (navigator.clipboard && window.isSecureContext){
         await navigator.clipboard.writeText(emoji);
       }else{
-        // 兼容回退
         const ta = document.createElement('textarea');
-        ta.value = emoji;
-        ta.style.position='fixed';
-        ta.style.opacity='0';
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        document.execCommand('copy');
-        ta.remove();
+        ta.value = emoji; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); ta.remove();
       }
-      flash(btn);
-      showToast(`已复制：${emoji}`);
+      flash(btn); showToast(`已复制：${emoji}`);
     }catch(err){
-      console.error(err);
-      showToast('复制失败，请手动复制');
+      console.error(err); showToast('复制失败，请手动复制');
     }
   }
 
-  function flash(el){
-    el.classList.add('copied');
-    setTimeout(()=>el.classList.remove('copied'), 500);
-  }
+  function flash(el){ el.classList.add('copied'); setTimeout(()=>el.classList.remove('copied'), 500); }
   let toastTimer=null;
   function showToast(msg){
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=> toast.classList.remove('show'), 1400);
+    toast.textContent = msg; toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=> toast.classList.remove('show'), 1400);
   }
 
-  function updateShownCount(){
-    const shown = emojiButtons.filter(b=>!b.classList.contains('hidden')).length;
-    countShown.textContent = String(shown);
-  }
-
-  async function fetchText(url){
-    const r = await fetch(url, {cache:'force-cache'});
-    if (!r.ok) throw new Error('无法获取 Emoji 清单：' + r.status);
-    return await r.text();
-  }
-
-  // 解析 Unicode 官方 emoji-test.txt
   function parseEmojiTest(text){
     const lines = text.split(/\r?\n/);
-    const groups = [];
-    let currentGroup = null;
-    let currentSub = null;
-    const allItems = [];
-
-    const pushGroup = name=>{
-      currentGroup = { name, subgroups: [] };
-      groups.push(currentGroup);
-    };
-    const pushSub = name=>{
-      currentSub = { name, items: [] };
-      currentGroup && currentGroup.subgroups.push(currentSub);
-    };
+    const groups = []; let currentGroup=null; let currentSub=null; const allItems=[];
+    const pushGroup = name=>{ currentGroup = {name, subgroups:[]}; groups.push(currentGroup); };
+    const pushSub = name=>{ currentSub = {name, items:[]}; currentGroup && currentGroup.subgroups.push(currentSub); };
 
     for (const raw of lines){
       const line = raw.trimEnd();
       if (!line || line.startsWith('#')) {
-        if (line.startsWith('# group:')) {
-          pushGroup(line.slice(8).trim().replace(/^:\s*/, '').trim());
-        } else if (line.startsWith('# subgroup:')) {
-          pushSub(line.slice(11).trim().replace(/^:\s*/, '').trim());
-        }
+        if (line.startsWith('# group:')) pushGroup(line.slice(8).trim().replace(/^:\s*/,'').trim());
+        else if (line.startsWith('# subgroup:')) pushSub(line.slice(11).trim().replace(/^:\s*/,'').trim());
         continue;
       }
-      // 形如： "1F600 ; fully-qualified     # 😀 grinning face"
-      const parts = line.split('#');
-      if (parts.length < 2) continue;
-      const left = parts[0];
-      const right = parts.slice(1).join('#'); // 以防名称里再有 '#'
-
-      const [cpAndSep, statusRaw] = left.split(';');
-      if (!statusRaw) continue;
-      const status = statusRaw.trim();
-      if (status !== 'fully-qualified') continue;
+      const parts = line.split('#'); if (parts.length < 2) continue;
+      const left = parts[0]; const right = parts.slice(1).join('#');
+      const [cpAndSep, statusRaw] = left.split(';'); if (!statusRaw) continue;
+      const status = statusRaw.trim(); if (status !== 'fully-qualified') continue;
 
       const cps = cpAndSep.trim().split(/\s+/).filter(Boolean);
-      const codepoints = cps.map(hex => parseInt(hex, 16));
-      const emojiStr = String.fromCodePoint(...codepoints);
+      const emojiStr = String.fromCodePoint(...cps.map(hex => parseInt(hex,16)));
 
-      // 去掉注释里的实际字符与可能存在的版本号前缀（如 E15.1）
       let name = right.trim();
       if (name.startsWith(emojiStr)) name = name.slice(emojiStr.length).trim();
       name = name.replace(/^E\d+(?:\.\d+)?\s*/,'').trim();
-      // 某些行格式： "😀 grinning face" -> 仍可能残留实际字符
-      if (name && name.charCodeAt(0) >= 0x2190 && name.charCodeAt(0) <= 0x1FAFF) {
-        // 简单兜底：如果第一个字符仍像符号，进一步清理
-        name = name.replace(/^[^\p{Letter}\p{Number}]+/u,'').trim();
-      }
       if (!name) name = cps.join(' ');
 
       const item = { emoji: emojiStr, name };
-      if (currentSub) {
-        currentSub.items.push(item);
-        allItems.push(item);
-      }
+      if (currentSub){ currentSub.items.push(item); allItems.push(item); }
     }
     return { groups, allItems };
   }

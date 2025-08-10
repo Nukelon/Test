@@ -3,89 +3,122 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minecraft 物品获取命令生成器（Java · 数据组件全量覆盖）</title>
+<title>Minecraft 物品获取命令生成器（Java 1.21.8）</title>
+<!--
+  本页面用于编辑 Minecraft Java 版物品的“数据组件” (Data Component)。
+  根据最新版（1.21.8）中文 Wiki 收集的字段，涵盖每个物品数据组件及其子属性。
+  通过可视化表单与原始 JSON 双向切换，实现完整的命令生成与组件编辑。
+
+  特性概述：
+  * 覆盖所有物品数据组件（实体相关组件除外）。
+  * 支持分段文本编辑，提供颜色、粗体、斜体、下划线、删除线、乱码等样式。
+  * 附魔、属性类型均提供中文翻译与下拉列表。
+  * 所有布尔项均用勾选框展示；数值字段具有最小/最大校验。
+  * 烟花颜色采用24位整数表示，并提供简易色板与自定义色值。
+  * “可视化编辑”与“原始 JSON”可任意切换，并可从原始 JSON 反向导入回表单。
+  * 页面适配桌面与移动端不同尺寸，确保布局自适应。
+-->
 <style>
   :root{
-    --bg:#0f1220;--panel:#171a2b;--panel-2:#1d2034;--text:#e7ebff;--muted:#aeb6d9;
-    --accent:#7aa2ff;--ok:#6de39b;--warn:#ffd166;--danger:#ff6b6b;--border:#2a2f4a;
+    --bg:#0f1220;
+    --panel:#171a2b;
+    --panel-2:#1d2034;
+    --text:#e7ebff;
+    --muted:#aeb6d9;
+    --accent:#7aa2ff;
+    --ok:#6de39b;
+    --warn:#ffd166;
+    --danger:#ff6b6b;
+    --border:#2a2f4a;
   }
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
-  .wrap{display:grid;grid-template-columns:380px 1fr;gap:14px;padding:14px} @media (max-width:1080px){.wrap{grid-template-columns:1fr}}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
   h1{font-size:18px;margin:8px 0 12px}
-  label{display:block;margin:8px 0 4px;color:var(--muted);font-size:12px}
+  label{display:block;margin:6px 0 2px;font-size:12px;color:var(--muted)}
   input[type=text],input[type=number],select,textarea{
-    width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);outline:none
+    width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);outline:none
   }
-  textarea{min-height:120px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-  button{background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer}
+  textarea{min-height:90px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
+  button{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px
+  }
   button.primary{background:var(--accent);border-color:#5a80ff;color:#fff}
+  button.danger{background:#2b1212;border-color:#ff6b6b;color:#ff6b6b}
+  button.ok{background:#0f2a1d;border-color:#7ee9b0;color:#7ee9b0}
   button.ghost{background:transparent}
-  .grid{display:grid;gap:10px}.cols-2{grid-template-columns:1fr 1fr}
+  .wrap{
+    display:grid;grid-template-columns:380px 1fr;gap:14px;padding:14px;
+  }
+  @media (max-width:960px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;overflow:auto}
   .list{display:flex;flex-direction:column;gap:10px}
-  .item{padding:10px;border:1px dashed var(--border);border-radius:10px;background:var(--panel-2)}
+  .item{padding:8px;border:1px dashed var(--border);border-radius:10px;background:var(--panel-2)}
   .hr{height:1px;background:var(--border);margin:10px 0}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-  .danger-btn{border-color:#ff8a8a;color:#ff8a8a;background:#2b1212}
-  .ok-btn{border-color:#7ee9b0;color:#0a1;background:#0f2a1d}
-  .hide{display:none}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
   .section-title{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
   .badge{padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:#ffffff12;font-size:12px}
   .checkboxes{display:flex;flex-wrap:wrap;gap:6px}
-  .checkboxes label{margin:0;font-size:12px;color:var(--text);background:var(--panel-2);border:1px solid var(--border);padding:5px 8px;border-radius:8px}
+  .checkboxes label{margin:0;font-size:12px;color:var(--text);background:var(--panel-2);border:1px solid var(--border);padding:5px 8px;border-radius:8px;user-select:none}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--panel-2);border:1px solid var(--border);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .chip strong{color:var(--text);margin-left:4px}
+  .hide{display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <!-- 左列：可视化编辑 -->
+  <!-- 左列：可视化编辑区 -->
   <div class="panel" id="left">
     <h1>物品编辑器 · Java 数据组件</h1>
-
     <label>物品 ID（可省略 <span class="mono">minecraft:</span>）</label>
-    <input id="itemId" type="text" placeholder="例：netherite_sword 或 minecraft:netherite_sword" />
+    <input id="itemId" type="text" placeholder="例如 netherite_sword 或 minecraft:netherite_sword" />
 
-    <div class="grid cols-2">
+    <div class="grid cols-2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
         <label>数量</label>
-        <input id="count" type="number" min="1" max="99" value="1" />
+        <input id="count" type="number" min="1" max="2147483647" value="1" />
       </div>
       <div>
         <label>目标（选择器）</label>
-        <input id="target" type="text" value="@s" />
+        <input id="target" type="text" value="@s" placeholder="如 @s / @p / 玩家名" />
       </div>
     </div>
-
     <div class="hr"></div>
-
     <div class="section-title">
-      <h2 style="margin:0;font-size:16px">数据组件</h2>
+      <h2 style="margin:0;font-size:16px">添加数据组件</h2>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="componentSelect" style="min-width:240px"></select>
-        <button id="addComponent" class="primary">添加组件</button>
+        <button id="addComponent" class="primary">添加</button>
       </div>
     </div>
-
     <div id="componentsArea" class="list"></div>
   </div>
 
-  <!-- 右列：预览 -->
+  <!-- 右列：预览与原始 JSON -->
   <div class="panel">
-    <div class="grid cols-2">
+    <div class="grid cols-2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div>
-        <div class="section-title"><b>预览命令</b><button id="copyCmd">复制</button></div>
-        <div id="cmd" class="mono" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:8px;padding:10px;background:#0b0e1a"></div>
+        <div class="section-title"><b>预览命令</b><button id="copyCmd" class="ghost">复制</button></div>
+        <div id="cmd" class="mono" style="white-space:pre-wrap;border:1px solid var(--border);border-radius:8px;padding:10px;background:#0b0e1a;min-height:80px"></div>
       </div>
       <div>
-        <div class="section-title"><b>原始 JSON（整包 components）</b><div style="display:flex;gap:6px"><button id="validateJson" class="ghost">校验</button><button id="applyJson" class="primary">载入到可视化</button><button id="copyJson">复制</button></div></div>
+        <div class="section-title">
+          <b>原始 JSON（整包 components）</b>
+          <div style="display:flex;gap:6px">
+            <button id="validateJson" class="ghost">校验</button>
+            <button id="applyJson" class="primary">导入可视化</button>
+            <button id="copyJson" class="ghost">复制</button>
+          </div>
+        </div>
         <textarea id="rawComponents" spellcheck="false" class="mono" placeholder='{"minecraft:enchantments":{"levels":{"minecraft:sharpness":5}}}'></textarea>
       </div>
     </div>
   </div>
-
 </div>
 
-<!-- 组件卡片模板 -->
+<!-- 模板：组件卡片 -->
 <template id="component-card">
   <div class="item">
     <div class="section-title">
@@ -93,16 +126,40 @@
         <b class="comp-title"></b>
         <span class="badge mono comp-id"></span>
       </div>
-      <div class="btns"></div>
+      <div class="comp-buttons" style="display:flex;gap:8px;"></div>
     </div>
     <div class="comp-form"></div>
-    <textarea class="comp-raw hide mono" spellcheck="false" placeholder='{"foo":123}'></textarea>
+    <textarea class="comp-raw hide mono" spellcheck="false" style="margin-top:8px;min-height:80px"></textarea>
   </div>
 </template>
 
 <script>
-/* =================== 数据与枚举 =================== */
-// 附魔ID（含近年新增）
+/* ========================= 常量与工具 ========================= */
+// 中文翻译表：包括附魔和属性名称
+const TRANSLATE = {
+  // 附魔翻译
+  'minecraft:sharpness':'锋利','minecraft:smite':'亡灵杀手','minecraft:bane_of_arthropods':'节肢杀手','minecraft:sweeping_edge':'横扫之刃',
+  'minecraft:unbreaking':'耐久','minecraft:mending':'修补','minecraft:efficiency':'效率','minecraft:silk_touch':'精准采集','minecraft:fortune':'幸运',
+  'minecraft:power':'力量','minecraft:punch':'冲击','minecraft:flame':'火矢','minecraft:infinity':'无限',
+  'minecraft:looting':'掠夺','minecraft:fire_aspect':'火焰附加','minecraft:knockback':'击退',
+  'minecraft:protection':'保护','minecraft:blast_protection':'爆炸保护','minecraft:projectile_protection':'弹射物保护','minecraft:feather_falling':'摔落保护',
+  'minecraft:thorns':'荆棘','minecraft:respiration':'水下呼吸','minecraft:aqua_affinity':'水下速掘','minecraft:depth_strider':'深海探索','minecraft:frost_walker':'冰霜行者',
+  'minecraft:soul_speed':'灵魂疾行','minecraft:swift_sneak':'迅捷潜行','minecraft:luck_of_the_sea':'海之眷顾','minecraft:lure':'饵钓',
+  'minecraft:channeling':'引雷','minecraft:impaling':'穿刺','minecraft:loyalty':'忠诚','minecraft:riptide':'激流',
+  'minecraft:quick_charge':'快速装填','minecraft:multishot':'多重射击','minecraft:piercing':'穿透',
+  'minecraft:binding_curse':'绑定咒','minecraft:vanishing_curse':'消失诅咒',
+  'minecraft:breach':'决裂','minecraft:density':'密度','minecraft:wind_burst':'风爆',
+  // 属性翻译
+  'minecraft:generic.max_health':'最大生命值','minecraft:generic.movement_speed':'移动速度','minecraft:generic.attack_damage':'攻击伤害','minecraft:generic.attack_speed':'攻击速度',
+  'minecraft:generic.armor':'护甲','minecraft:generic.armor_toughness':'护甲韧性','minecraft:generic.knockback_resistance':'击退抗性','minecraft:generic.luck':'幸运',
+  'minecraft:generic.step_height':'跨越高度','minecraft:generic.jump_strength':'跳跃力量','minecraft:player.block_interaction_range':'方块交互距离',
+  'minecraft:player.entity_interaction_range':'实体交互距离','minecraft:generic.follow_range':'跟随范围','minecraft:generic.attack_knockback':'攻击击退',
+  'minecraft:generic.flying_speed':'飞行速度','minecraft:generic.max_absorption':'最大吸收生命','minecraft:generic.safe_fall_distance':'安全跌落距离',
+  'minecraft:generic.fall_damage_multiplier':'摔落伤害倍率','minecraft:generic.mining_efficiency':'采矿效率','minecraft:generic.sneaking_speed':'潜行速度',
+  'minecraft:generic.explosion_knockback_resistance':'爆炸击退抗性'
+};
+
+// 基础枚举
 const ENCHANT_IDS = [
   "aqua_affinity","bane_of_arthropods","binding_curse","blast_protection","breach",
   "channeling","density","depth_strider","efficiency","feather_falling","fire_aspect",
@@ -111,649 +168,1219 @@ const ENCHANT_IDS = [
   "projectile_protection","protection","punch","quick_charge","respiration","riptide",
   "sharpness","silk_touch","smite","soul_speed","sweeping_edge","swift_sneak",
   "thorns","unbreaking","vanishing_curse","wind_burst"
-].map(x=>"minecraft:"+x);
+].map(x => "minecraft:"+x);
 
-// 属性：常见 vanilla
 const ATTR_TYPES = [
-  "minecraft:generic.max_health","minecraft:generic.knockback_resistance","minecraft:generic.movement_speed","minecraft:generic.flying_speed",
-  "minecraft:generic.attack_damage","minecraft:generic.attack_speed","minecraft:generic.attack_knockback","minecraft:generic.armor","minecraft:generic.armor_toughness",
-  "minecraft:generic.luck","minecraft:generic.step_height","minecraft:generic.jump_strength","minecraft:generic.max_absorption","minecraft:generic.scale",
-  "minecraft:generic.safe_fall_distance","minecraft:generic.fall_damage_multiplier","minecraft:generic.mining_efficiency","minecraft:generic.sneaking_speed",
-  "minecraft:generic.explosion_knockback_resistance","minecraft:player.block_interaction_range","minecraft:player.entity_interaction_range"
+  "minecraft:generic.max_health","minecraft:generic.knockback_resistance","minecraft:generic.movement_speed",
+  "minecraft:generic.flying_speed","minecraft:generic.attack_damage","minecraft:generic.attack_speed",
+  "minecraft:generic.attack_knockback","minecraft:generic.armor","minecraft:generic.armor_toughness",
+  "minecraft:generic.luck","minecraft:generic.step_height","minecraft:generic.jump_strength","minecraft:generic.max_absorption",
+  "minecraft:generic.scale","minecraft:generic.safe_fall_distance","minecraft:generic.fall_damage_multiplier",
+  "minecraft:generic.mining_efficiency","minecraft:generic.sneaking_speed","minecraft:generic.explosion_knockback_resistance",
+  "minecraft:player.block_interaction_range","minecraft:player.entity_interaction_range"
 ];
+
 const ATTR_SLOTS = ["head","chest","legs","feet","mainhand","offhand"];
 const ATTR_OPS = ["add_value","add_multiplied_base","add_multiplied_total"];
-
-// 稀有度
 const RARITIES = ["common","uncommon","rare","epic"];
-
-// 聊天色（文本组件）
-const CHAT_COLORS = ["black","dark_blue","dark_green","dark_aqua","dark_red","dark_purple","gold","gray","dark_gray","blue","green","aqua","red","light_purple","yellow","white"];
-
-// 染料色（含十六进制参考）
+const CHAT_COLORS = ["black","dark_blue","dark_green","dark_aqua","dark_red","dark_purple","gold",
+  "gray","dark_gray","blue","green","aqua","red","light_purple","yellow","white"];
 const DYE_COLORS = [
   ["white","#F9FFFE"],["orange","#F9801D"],["magenta","#C74EBD"],["light_blue","#3AB3DA"],["yellow","#FED83D"],
   ["lime","#80C71F"],["pink","#F38BAA"],["gray","#474F52"],["light_gray","#9D9D97"],["cyan","#169C9C"],
   ["purple","#8932B8"],["blue","#3C44AA"],["brown","#835432"],["green","#5E7C16"],["red","#B02E26"],["black","#1D1D21"]
 ];
-
-// 山羊角乐器（instrument）
+const TRIM_MATERIALS = ["minecraft:amethyst","minecraft:quartz","minecraft:iron","minecraft:netherite","minecraft:redstone",
+  "minecraft:copper","minecraft:gold","minecraft:emerald","minecraft:lapis","minecraft:diamond"];
+const TRIM_PATTERNS = ["minecraft:coast","minecraft:dune","minecraft:eye","minecraft:host","minecraft:raiser","minecraft:rib",
+  "minecraft:sentry","minecraft:shaper","minecraft:silence","minecraft:snout","minecraft:spire","minecraft:tide","minecraft:vex",
+  "minecraft:ward","minecraft:wayfinder","minecraft:wild"];
+const POTTERY_SHERDS = ["minecraft:angler_pottery_sherd","minecraft:archer_pottery_sherd","minecraft:arms_up_pottery_sherd",
+  "minecraft:blade_pottery_sherd","minecraft:brewer_pottery_sherd","minecraft:burn_pottery_sherd","minecraft:danger_pottery_sherd",
+  "minecraft:explorer_pottery_sherd","minecraft:friend_pottery_sherd","minecraft:heart_pottery_sherd","minecraft:heartbreak_pottery_sherd",
+  "minecraft:howl_pottery_sherd","minecraft:miner_pottery_sherd","minecraft:mourner_pottery_sherd","minecraft:plenty_pottery_sherd",
+  "minecraft:prize_pottery_sherd","minecraft:scrape_pottery_sherd","minecraft:sheaf_pottery_sherd","minecraft:shelter_pottery_sherd",
+  "minecraft:skull_pottery_sherd","minecraft:snort_pottery_sherd"];
 const INSTRUMENTS = [
   "minecraft:ponder_goat_horn","minecraft:sing_goat_horn","minecraft:seek_goat_horn","minecraft:feel_goat_horn",
   "minecraft:admire_goat_horn","minecraft:call_goat_horn","minecraft:yearn_goat_horn","minecraft:dream_goat_horn"
 ];
-
-// 唱片（jukebox_playable）
 const MUSIC_DISCS = [
   "minecraft:music_disc.13","minecraft:music_disc.cat","minecraft:music_disc.blocks","minecraft:music_disc.chirp",
   "minecraft:music_disc.far","minecraft:music_disc.mall","minecraft:music_disc.mellohi","minecraft:music_disc.stal",
   "minecraft:music_disc.strad","minecraft:music_disc.ward","minecraft:music_disc.11","minecraft:music_disc.wait",
   "minecraft:music_disc.otherside","minecraft:music_disc.pigstep","minecraft:music_disc.5","minecraft:music_disc.relic"
 ];
-
-// 音符盒乐器（note_block_sound）
 const NOTE_BLOCK_SOUNDS = [
   "minecraft:block.note_block.harp","minecraft:block.note_block.bass","minecraft:block.note_block.basedrum","minecraft:block.note_block.snare",
   "minecraft:block.note_block.hat","minecraft:block.note_block.guitar","minecraft:block.note_block.flute","minecraft:block.note_block.bell",
   "minecraft:block.note_block.chime","minecraft:block.note_block.xylophone","minecraft:block.note_block.iron_xylophone",
-  "minecraft:block.note_block.cow_bell","minecraft:block.note_block.didgeridoo","minecraft:block.note_block.bit","minecraft:block.note_block.banjo","minecraft:block.note_block.pling"
+  "minecraft:block.note_block.cow_bell","minecraft:block.note_block.didgeridoo","minecraft:block.note_block.bit",
+  "minecraft:block.note_block.banjo","minecraft:block.note_block.pling"
 ];
 
-// 纹饰材料/图案（trim）
-const TRIM_MATERIALS = ["minecraft:amethyst","minecraft:quartz","minecraft:iron","minecraft:netherite","minecraft:redstone","minecraft:copper","minecraft:gold","minecraft:emerald","minecraft:lapis","minecraft:diamond"];
-const TRIM_PATTERNS = ["minecraft:coast","minecraft:dune","minecraft:eye","minecraft:host","minecraft:raiser","minecraft:rib","minecraft:sentry","minecraft:shaper","minecraft:silence","minecraft:snout","minecraft:spire","minecraft:tide","minecraft:vex","minecraft:ward","minecraft:wayfinder","minecraft:wild"];
+// 火焰火球形状枚举（烟火爆裂形状）
+const FIREWORK_SHAPES = ["small_ball","large_ball","star","creeper","burst"];
 
-// 陶片（pot_decorations）
-const POTTERY_SHERDS = ["minecraft:angler_pottery_sherd","minecraft:archer_pottery_sherd","minecraft:arms_up_pottery_sherd","minecraft:blade_pottery_sherd","minecraft:brewer_pottery_sherd","minecraft:burn_pottery_sherd","minecraft:danger_pottery_sherd","minecraft:explorer_pottery_sherd","minecraft:friend_pottery_sherd","minecraft:heart_pottery_sherd","minecraft:heartbreak_pottery_sherd","minecraft:howl_pottery_sherd","minecraft:miner_pottery_sherd","minecraft:mourner_pottery_sherd","minecraft:plenty_pottery_sherd","minecraft:prize_pottery_sherd","minecraft:scrape_pottery_sherd","minecraft:sheaf_pottery_sherd","minecraft:shelter_pottery_sherd","minecraft:skull_pottery_sherd","minecraft:snort_pottery_sherd"];
+// 枚举：Consumable 消耗效果类型
+const CONSUME_EFFECT_TYPES = ["apply_effects","remove_effects","play_sound","teleport_randomly","clear_all_effects"];
 
-/* =================== 工具函数 =================== */
-function ns(id){ return id && id.includes(":")? id : ("minecraft:" + id) }
-function labelOf(text){ const l=document.createElement("label"); l.textContent=text; return l; }
-function fillOptions(sel, list){ sel.innerHTML=""; list.forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.append(o); }); }
-function toast(msg){ const t=document.createElement("div"); t.textContent=msg; Object.assign(t.style,{position:"fixed",right:"14px",bottom:"14px",background:"#111c",border:"1px solid #2a2f4a",padding:"8px 12px",borderRadius:"8px",backdropFilter:"blur(4px)"}); document.body.append(t); setTimeout(()=>t.remove(),1200); }
-
-// 颜色组件（预设 + 自定义 + 16进制）
+// 实用：命名空间补全
+function ns(id){ return id && id.includes(":" ) ? id : ("minecraft:" + id); }
+function label(text){ const l=document.createElement("label"); l.textContent=text; return l; }
+function fillOptions(select, list){ select.innerHTML=""; list.forEach(val=>{ const opt=document.createElement("option"); opt.value=val; opt.textContent=val; select.appendChild(opt); }); }
+// 颜色选择器：预设+自定义（支持16进制）
 function makeColorPicker({presetList, initial}){
   const wrap=document.createElement("div");
   const sel=document.createElement("select");
-  const customWrap=document.createElement("div"); customWrap.style.display="none"; customWrap.style.marginTop="6px"; customWrap.style.gap="6px"; customWrap.style.display="none"; customWrap.style.alignItems="center"; customWrap.style.display="none"; customWrap.className="checkboxes";
+  const customWrap=document.createElement("div"); customWrap.style.display="none"; customWrap.style.marginTop="6px"; customWrap.style.gap="6px"; customWrap.className="checkboxes";
   const colorInput=document.createElement("input"); colorInput.type="color";
   const hexInput=document.createElement("input"); hexInput.type="text"; hexInput.placeholder="#RRGGBB";
   customWrap.append(colorInput, hexInput);
-  const names = presetList.map(x=> Array.isArray(x)? x[0] : x);
+  const names = presetList.map(x=> Array.isArray(x) ? x[0] : x);
   fillOptions(sel, [...names, "custom"]);
   wrap.append(sel, customWrap);
-  if(initial){ if(names.includes(initial)) sel.value=initial; else { sel.value="custom"; customWrap.style.display="flex"; const hx=initial.startsWith("#")?initial:"#ffffff"; colorInput.value=hx; hexInput.value=hx; } }
-  sel.addEventListener("change", ()=>{ customWrap.style.display = sel.value==="custom" ? "flex" : "none"; });
-  colorInput.addEventListener("input", ()=>{ hexInput.value=colorInput.value });
-  hexInput.addEventListener("input", ()=>{ const v=hexInput.value.trim(); if(/^#?[0-9a-fA-F]{6}$/.test(v)) colorInput.value = v.startsWith("#")? v : ("#"+v) });
-  return { el:wrap, getValue(){ return sel.value==="custom" ? (hexInput.value.startsWith("#")? hexInput.value : "#"+hexInput.value.replace(/^#/,"")) : sel.value; }, setValue(v){ if(names.includes(v)){ sel.value=v; customWrap.style.display="none"; } else { sel.value="custom"; customWrap.style.display="flex"; const hx=v?.startsWith("#")?v:"#ffffff"; colorInput.value=hx; hexInput.value=hx; } } };
+  if(initial){
+    if(names.includes(initial)) sel.value=initial;
+    else { sel.value="custom"; customWrap.style.display="flex"; const hx=initial.startsWith("#")?initial:"#ffffff"; colorInput.value=hx; hexInput.value=hx; }
+  }
+  sel.addEventListener("change", ()=>{ customWrap.style.display = (sel.value==="custom") ? "flex" : "none"; });
+  colorInput.addEventListener("input", ()=>{ hexInput.value=colorInput.value; });
+  hexInput.addEventListener("input", ()=>{ const v=hexInput.value.trim(); if(/^#?[0-9a-fA-F]{6}$/.test(v)) colorInput.value = v.startsWith("#")? v : ("#"+v); });
+  return {
+    el:wrap,
+    getValue(){ return sel.value==="custom" ? (hexInput.value.startsWith("#")? hexInput.value : ("#"+hexInput.value)) : sel.value; },
+    setValue(v){ if(names.includes(v)){ sel.value=v; customWrap.style.display="none"; }
+      else { sel.value="custom"; customWrap.style.display="flex"; const hx=v && v.startsWith("#")?v:"#ffffff"; colorInput.value=hx; hexInput.value=hx; }
+    }
+  };
 }
 
-/* =================== 组件目录（覆盖清单） =================== */
-/* 说明：
- * kind:
- *  - "helper"：可视化 + 可与 JSON 双向切换
- *  - "raw"  ：原始 JSON（可编辑）
- *  - "bool" ：开关（无代码块）
- *  - "num"  ：单数字（无代码块）
- *  - "str"  ：单字符串（无代码块）
- *  - "numobj": 单数字封装为对象，如 use_cooldown => {seconds:N} / map_id => {id:N}
- */
+// Toast 通知
+function toast(msg){ const t=document.createElement("div"); t.textContent=msg; Object.assign(t.style,{position:"fixed",right:"14px",bottom:"14px",background:"#111c",border:"1px solid var(--border)",padding:"8px 12px",borderRadius:"8px",backdropFilter:"blur(4px)",zIndex:1000}); document.body.appendChild(t); setTimeout(()=>t.remove(),1500); }
+
+/* ========================= 组件目录 ========================= */
+/*
+  kind:
+    - helper: 使用 Helper 中定义的渲染器
+    - raw: 原始 JSON 编辑器
+    - bool: 仅包含布尔值，使用复选框
+    - num: 单数字值
+    - str: 单字符串值
+    - numobj: 数字属性封装，如 use_cooldown.seconds
+*/
 const CATALOG = [
-  // 文本/外观类
-  {id:"item_name", title:"显示名（item_name）", group:"文本", kind:"helper", helper:"text"},
-  {id:"custom_name", title:"自定义名称（custom_name）", group:"文本", kind:"helper", helper:"text"},
-  {id:"lore", title:"描述（lore）", group:"文本", kind:"helper", helper:"lore"},
+  // 文本与外观
+  {id:"item_name", title:"物品名称（item_name）", group:"文本", kind:"helper", helper:"rich_text"},
+  {id:"custom_name", title:"自定义名称（custom_name）", group:"文本", kind:"helper", helper:"rich_text"},
+  {id:"lore", title:"描述信息（lore）", group:"文本", kind:"helper", helper:"lore"},
   {id:"rarity", title:"稀有度（rarity）", group:"外观", kind:"helper", helper:"rarity"},
   {id:"tooltip_style", title:"提示样式（tooltip_style）", group:"外观", kind:"str"},
   {id:"tooltip_display", title:"提示显示（tooltip_display）", group:"外观", kind:"raw", template:{hide:[]}},
   {id:"enchantment_glint_override", title:"附魔光效（enchantment_glint_override）", group:"外观", kind:"bool"},
-  {id:"dyed_color", title:"所染颜色（dyed_color）", group:"外观", kind:"helper", helper:"dyed_color"},
+  {id:"dyed_color", title:"染色（dyed_color）", group:"外观", kind:"helper", helper:"dyed_color"},
   {id:"item_model", title:"物品模型（item_model）", group:"外观", kind:"str"},
   {id:"custom_model_data", title:"自定义模型数据（custom_model_data）", group:"外观", kind:"raw", template:{}},
   {id:"trim", title:"盔甲纹饰（trim）", group:"外观", kind:"helper", helper:"trim"},
   {id:"base_color", title:"盾牌基色（base_color）", group:"外观", kind:"helper", helper:"base_color"},
   {id:"map_color", title:"物品栏地图色（map_color）", group:"外观", kind:"helper", helper:"hex_to_int"},
 
-  // 属性/战斗/交互
-  {id:"attribute_modifiers", title:"属性修饰（attribute_modifiers）", group:"属性/战斗", kind:"helper", helper:"attributes"},
-  {id:"enchantable", title:"附魔能力（enchantable）", group:"属性/战斗", kind:"num"},
-  {id:"enchantments", title:"魔咒（enchantments）", group:"属性/战斗", kind:"helper", helper:"enchant"},
-  {id:"stored_enchantments", title:"无活性魔咒（stored_enchantments）", group:"属性/战斗", kind:"helper", helper:"enchant"},
-  {id:"unbreakable", title:"无法破坏（unbreakable）", group:"属性/战斗", kind:"bool"},
-  {id:"blocks_attacks", title:"格挡攻击（blocks_attacks）", group:"属性/战斗", kind:"raw", template:{}},
-  {id:"weapon", title:"武器行为（weapon）", group:"属性/战斗", kind:"raw", template:{}},
+  // 属性/战斗
+  {id:"attribute_modifiers", title:"属性修饰（attribute_modifiers）", group:"属性", kind:"helper", helper:"attributes"},
+  {id:"enchantable", title:"附魔能力（enchantable）", group:"属性", kind:"num"},
+  {id:"enchantments", title:"附魔（enchantments）", group:"属性", kind:"helper", helper:"enchant"},
+  {id:"stored_enchantments", title:"无活性附魔（stored_enchantments）", group:"属性", kind:"helper", helper:"enchant"},
+  {id:"unbreakable", title:"无法破坏（unbreakable）", group:"属性", kind:"bool"},
+  {id:"blocks_attacks", title:"格挡攻击（blocks_attacks）", group:"属性", kind:"raw", template:{}},
+  {id:"weapon", title:"武器行为（weapon）", group:"属性", kind:"raw", template:{}},
+  {id:"max_damage", title:"最大耐久度（max_damage）", group:"耐久", kind:"num"},
+  {id:"damage", title:"当前磨损（damage）", group:"耐久", kind:"num"},
+  {id:"max_stack_size", title:"最大堆叠数（max_stack_size）", group:"耐久", kind:"num"},
+  {id:"repair_cost", title:"铁砧惩罚值（repair_cost）", group:"耐久", kind:"num"},
+  {id:"repairable", title:"可修复材料（repairable）", group:"耐久", kind:"helper", helper:"repairable"},
+  {id:"break_sound", title:"耐久耗尽音效（break_sound）", group:"耐久", kind:"str"},
 
-  // 物品寿命/堆叠
-  {id:"max_damage", title:"最大耐久（max_damage）", group:"耐久/堆叠", kind:"num"},
-  {id:"damage", title:"损坏值（damage）", group:"耐久/堆叠", kind:"num"},
-  {id:"max_stack_size", title:"最大堆叠数（max_stack_size）", group:"耐久/堆叠", kind:"num"},
-  {id:"repair_cost", title:"铁砧惩罚值（repair_cost）", group:"耐久/堆叠", kind:"num"},
-  {id:"repairable", title:"可被何物修复（repairable）", group:"耐久/堆叠", kind:"helper", helper:"repairable"},
-  {id:"break_sound", title:"耐久耗尽音效（break_sound）", group:"耐久/堆叠", kind:"str"},
-
-  // 冒险模式条件
-  {id:"can_place_on", title:"可放置于（can_place_on）", group:"冒险模式", kind:"raw", template:{predicates:[]}},
-  {id:"can_break", title:"可破坏（can_break）", group:"冒险模式", kind:"raw", template:{predicates:[]}},
+  // 冒险模式
+  {id:"can_place_on", title:"可放置方块（can_place_on）", group:"冒险模式", kind:"raw", template:{predicates:[]}},
+  {id:"can_break", title:"可破坏方块（can_break）", group:"冒险模式", kind:"raw", template:{predicates:[]}},
   {id:"lock", title:"锁（lock）", group:"冒险模式", kind:"str"},
 
-  // 容器/装填/地图/指南针
-  {id:"container", title:"容器内物品（container）", group:"容器/地图", kind:"helper", helper:"container"},
+  // 容器 / 地图 / 物品
+  {id:"container", title:"容器物品（container）", group:"容器/地图", kind:"helper", helper:"container"},
   {id:"container_loot", title:"容器战利品（container_loot）", group:"容器/地图", kind:"helper", helper:"container_loot"},
   {id:"bundle_contents", title:"收纳袋内容（bundle_contents）", group:"容器/地图", kind:"helper", helper:"bundle"},
-  {id:"charged_projectiles", title:"装载弹射物（charged_projectiles）", group:"容器/地图", kind:"helper", helper:"charged"},
+  {id:"charged_projectiles", title:"装载弹药（charged_projectiles）", group:"容器/地图", kind:"helper", helper:"charged"},
   {id:"map_id", title:"地图编号（map_id）", group:"容器/地图", kind:"numobj", key:"id"},
   {id:"map_decorations", title:"地图图标（map_decorations）", group:"容器/地图", kind:"raw", template:{decorations:[]}},
   {id:"lodestone_tracker", title:"磁石追踪（lodestone_tracker）", group:"容器/地图", kind:"helper", helper:"lodestone"},
-  {id:"map_color", title:"物品栏地图色（map_color）", group:"容器/地图", kind:"helper", helper:"hex_to_int"},
 
-  // 食物/药水/消耗
+  // 消耗 / 食物 / 药水
   {id:"consumable", title:"可消耗（consumable）", group:"消耗/食物", kind:"helper", helper:"consumable"},
-  {id:"food", title:"食物（food）", group:"消耗/食物", kind:"helper", helper:"food"},
-  {id:"use_cooldown", title:"使用冷却（use_cooldown, 秒）", group:"消耗/食物", kind:"numobj", key:"seconds"},
-  {id:"use_remainder", title:"使用后返还（use_remainder）", group:"消耗/食物", kind:"raw", template:{}},
+  {id:"food", title:"食物属性（food）", group:"消耗/食物", kind:"helper", helper:"food"},
+  {id:"use_cooldown", title:"使用冷却（use_cooldown）", group:"消耗/食物", kind:"numobj", key:"seconds"},
+  {id:"use_remainder", title:"使用返还（use_remainder）", group:"消耗/食物", kind:"helper", helper:"use_remainder"},
   {id:"potion_contents", title:"药水内容（potion_contents）", group:"消耗/食物", kind:"helper", helper:"potion"},
   {id:"potion_duration_scale", title:"药水时长倍率（potion_duration_scale）", group:"消耗/食物", kind:"num"},
+  {id:"suspicious_stew_effects", title:"可疑炖菜效果（suspicious_stew_effects）", group:"消耗/食物", kind:"helper", helper:"stew"},
+  {id:"ominous_bottle_amplifier", title:"不祥之瓶倍率（ominous_bottle_amplifier）", group:"消耗/食物", kind:"num"},
 
-  // 书本/唱片/乐器/音符盒
-  {id:"writable_book_content", title:"书与笔（writable_book_content）", group:"书籍/音频", kind:"helper", helper:"book_writable"},
-  {id:"written_book_content", title:"成书（written_book_content）", group:"书籍/音频", kind:"helper", helper:"book_written"},
+  // 书本 / 音频 / 乐器
+  {id:"writable_book_content", title:"书与笔内容（writable_book_content）", group:"书籍/音频", kind:"helper", helper:"book_writable"},
+  {id:"written_book_content", title:"成书内容（written_book_content）", group:"书籍/音频", kind:"helper", helper:"book_written"},
   {id:"jukebox_playable", title:"唱片（jukebox_playable）", group:"书籍/音频", kind:"helper", helper:"jukebox"},
   {id:"instrument", title:"乐器（instrument）", group:"书籍/音频", kind:"helper", helper:"instrument"},
   {id:"note_block_sound", title:"音符盒乐器（note_block_sound）", group:"书籍/音频", kind:"helper", helper:"note_block"},
 
-  // 旗帜/陶罐
+  // 旗帜 / 陶罐
   {id:"banner_patterns", title:"旗帜图案（banner_patterns）", group:"旗帜/陶罐", kind:"helper", helper:"banner"},
-  {id:"provides_banner_patterns", title:"可作织布机图案（provides_banner_patterns）", group:"旗帜/陶罐", kind:"bool"},
-  {id:"pot_decorations", title:"陶罐陶片（pot_decorations）", group:"旗帜/陶罐", kind:"helper", helper:"pottery"},
+  {id:"provides_banner_patterns", title:"可织旗图案槽（provides_banner_patterns）", group:"旗帜/陶罐", kind:"bool"},
+  {id:"pot_decorations", title:"陶罐饰纹（pot_decorations）", group:"旗帜/陶罐", kind:"helper", helper:"pottery"},
+  {id:"provides_trim_material", title:"提供盔甲饰纹材料（provides_trim_material）", group:"旗帜/陶罐", kind:"bool"},
 
-  // 旅行/工具/其它
-  {id:"equippable", title:"可穿戴（equippable）", group:"装备", kind:"helper", helper:"equippable"},
-  {id:"glider", title:"滑翔（glider）", group:"装备", kind:"bool"},
-  {id:"intangible_projectile", title:"仅创造可拾取（intangible_projectile）", group:"投掷物", kind:"bool"},
-  {id:"tool", title:"工具（tool）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"debug_stick_state", title:"调试棒状态（debug_stick_state）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"block_entity_data", title:"方块实体数据（block_entity_data）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"bucket_entity_data", title:"生物桶实体数据（bucket_entity_data）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"entity_data", title:"实体数据（entity_data）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"block_state", title:"方块状态（block_state）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"bees", title:"蜜蜂数据（bees）", group:"工具/高级", kind:"raw", template:[]},
-  {id:"death_protection", title:"死亡保护（death_protection）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"damage_resistant", title:"不被指定伤害摧毁（damage_resistant）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"custom_data", title:"自定义数据（custom_data）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"profile", title:"玩家档案（profile）", group:"工具/高级", kind:"raw", template:{}},
-  {id:"recipes", title:"知识之书配方（recipes）", group:"工具/高级", kind:"helper", helper:"recipes"},
-  {id:"ominous_bottle_amplifier", title:"不祥之瓶倍率（ominous_bottle_amplifier）", group:"工具/高级", kind:"num"},
+  // 烟花 / 爆竹
+  {id:"firework_explosion", title:"烟火爆裂（firework_explosion）", group:"烟花", kind:"helper", helper:"firework_explosion"},
+  {id:"fireworks", title:"烟花火箭（fireworks）", group:"烟花", kind:"helper", helper:"fireworks"},
+
+  // 其他杂项
+  {id:"equippable", title:"可穿戴（equippable）", group:"杂项", kind:"helper", helper:"equippable"},
+  {id:"glider", title:"滑翔（glider）", group:"杂项", kind:"bool"},
+  {id:"intangible_projectile", title:"创造模式弹拾（intangible_projectile）", group:"杂项", kind:"bool"},
+  {id:"tool", title:"工具属性（tool）", group:"杂项", kind:"raw", template:{}},
+  {id:"debug_stick_state", title:"调试棒状态（debug_stick_state）", group:"杂项", kind:"raw", template:{}},
+  {id:"block_entity_data", title:"方块实体数据（block_entity_data）", group:"杂项", kind:"raw", template:{}},
+  {id:"bucket_entity_data", title:"生物桶实体数据（bucket_entity_data）", group:"杂项", kind:"raw", template:{}},
+  {id:"entity_data", title:"实体数据（entity_data）", group:"杂项", kind:"raw", template:{}},
+  {id:"block_state", title:"方块状态（block_state）", group:"杂项", kind:"raw", template:{}},
+  {id:"bees", title:"蜜蜂数据（bees）", group:"杂项", kind:"raw", template:[]},
+  {id:"death_protection", title:"死亡保护（death_protection）", group:"杂项", kind:"raw", template:{}},
+  {id:"damage_resistant", title:"伤害抗性（damage_resistant）", group:"杂项", kind:"raw", template:{}},
+  {id:"custom_data", title:"自定义数据（custom_data）", group:"杂项", kind:"raw", template:{}},
+  {id:"profile", title:"玩家档案（profile）", group:"杂项", kind:"raw", template:{}},
+  {id:"recipes", title:"知识之书配方（recipes）", group:"杂项", kind:"helper", helper:"recipes"}
 ];
 
-/* =================== Helper 渲染器 =================== */
-const Helper = {
-  // 文本组件
-  text(){
-    const box=document.createElement("div");
-    const t=document.createElement("input"); t.placeholder="纯文本（也可在 JSON 模式下用完整 Text 组件）";
-    const color = makeColorPicker({presetList:CHAT_COLORS, initial:"white"});
-    box.append(labelOf("文本"),t,labelOf("颜色（聊天色/自定义）"),color.el);
-    return {
-      el:box,
-      build:()=>({text:t.value||"", color: color.getValue()||"white"}),
-      fill:(v)=>{ t.value = (v?.text??""); if(v?.color) color.setValue(v.color) }
+/* ========================= Helper 渲染器 ========================= */
+const Helper = {};
+
+// Rich text: 支持分段、颜色及样式（粗体、斜体、下划线、删除线、乱码）
+Helper.rich_text = function(){
+  const wrap=document.createElement("div");
+  const list=document.createElement("div"); list.className="list";
+  const addBtn=document.createElement("button"); addBtn.textContent="添加段落";
+  function mkSeg(seg={text:"", color:"white", bold:false, italic:false, underlined:false, strikethrough:false, obfuscated:false}){
+    const it=document.createElement("div"); it.className="item";
+    const txt=document.createElement("input"); txt.placeholder="文本内容"; txt.value=seg.text||"";
+    const col=makeColorPicker({presetList:CHAT_COLORS, initial: seg.color||"white"});
+    // 样式勾选
+    const styles=document.createElement("div"); styles.className="checkboxes";
+    function mkStyle(name,labelTxt){ const lab=document.createElement("label"); const ck=document.createElement("input"); ck.type="checkbox"; ck.checked=!!seg[name]; lab.append(ck, document.createTextNode(" "+labelTxt)); styles.append(lab); return ck; }
+    const cbBold=mkStyle("bold","粗体"); const cbItalic=mkStyle("italic","斜体"); const cbUnder=mkStyle("underlined","下划线");
+    const cbStrike=mkStyle("strikethrough","删除线"); const cbObf=mkStyle("obfuscated","乱码");
+    const del=document.createElement("button"); del.textContent="删除段"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("文本"),txt,label("颜色"),col.el,label("样式"),styles,del);
+    it.getValue=()=>{
+      const o={text:txt.value||""};
+      const c=col.getValue(); if(c) o.color=c;
+      if(cbBold.querySelector("input")?.checked) o.bold=true;
+      if(cbItalic.querySelector("input")?.checked) o.italic=true;
+      if(cbUnder.querySelector("input")?.checked) o.underlined=true;
+      if(cbStrike.querySelector("input")?.checked) o.strikethrough=true;
+      if(cbObf.querySelector("input")?.checked) o.obfuscated=true;
+      return o;
     };
-  },
-  // lore 多行
-  lore(){
-    const wrap=document.createElement("div"); const list=document.createElement("div"); list.className="list";
-    const btn=document.createElement("button"); btn.textContent="新增一行";
-    const make=(line={text:"",color:"gray"})=>{
-      const it=document.createElement("div"); it.className="item";
-      const tx=document.createElement("input"); tx.placeholder="这一行的文本"; tx.value=line.text||"";
-      const col=makeColorPicker({presetList:CHAT_COLORS, initial: line.color||"gray"});
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("文本"),tx,labelOf("颜色"),col.el,del);
-      it.getValue=()=>({text:tx.value||"",color:col.getValue()||"gray"});
-      list.append(it);
+    it.setValue=(v)=>{
+      txt.value=v?.text||"";
+      if(v?.color) col.setValue(v.color);
+      cbBold.querySelector("input").checked=!!v?.bold;
+      cbItalic.querySelector("input").checked=!!v?.italic;
+      cbUnder.querySelector("input").checked=!!v?.underlined;
+      cbStrike.querySelector("input").checked=!!v?.strikethrough;
+      cbObf.querySelector("input").checked=!!v?.obfuscated;
     };
-    btn.onclick=()=>make({});
-    wrap.append(list,btn);
-    make({});
-    return { el:wrap, build:()=>({lines: Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.lines||[{text:"",color:"gray"}]).forEach(make); } };
-  },
-  // 稀有度
-  rarity(){
-    const s=document.createElement("select"); fillOptions(s, RARITIES);
-    return { el:s, build:()=>s.value, fill:(v)=>{ if(RARITIES.includes(v)) s.value=v; } };
-  },
-  // 所染颜色（皮革等）
-  dyed_color(){
-    const col=makeColorPicker({presetList:DYE_COLORS, initial:"white"});
-    const gl=document.createElement("select"); fillOptions(gl, ["默认","强制开启","强制关闭"]);
-    const box=document.createElement("div"); box.append(labelOf("颜色"),col.el,labelOf("附魔光效覆盖"),gl);
-    return { el:box, build:()=>({ color: col.getValue(), show_glint_override: gl.value==="默认"? undefined : (gl.value==="强制开启") }), fill:(v)=>{ if(v?.color) col.setValue(v.color); if(typeof v?.show_glint_override==="boolean") gl.value = v.show_glint_override?"强制开启":"强制关闭"; else gl.value="默认"; } };
-  },
-  // 盔甲纹饰
-  trim(){
-    const m=document.createElement("select"); fillOptions(m, TRIM_MATERIALS);
-    const p=document.createElement("select"); fillOptions(p, TRIM_PATTERNS);
-    const box=document.createElement("div"); box.append(labelOf("材料"),m,labelOf("图案"),p);
-    return { el:box, build:()=>({material:m.value, pattern:p.value}), fill:(v)=>{ if(v?.material) m.value=v.material; if(v?.pattern) p.value=v.pattern; } };
-  },
-  // 盾牌基色
-  base_color(){
-    const s=document.createElement("select"); fillOptions(s, DYE_COLORS.map(x=>x[0]));
-    return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
-  },
-  // 十六进制颜色 -> 整数（map_color）
-  hex_to_int(){
-    const p=makeColorPicker({presetList:DYE_COLORS, initial:"#ffffff"});
-    const box=document.createElement("div"); box.append(labelOf("颜色（HEX 或染料名）"), p.el);
-    return { el:box, build:()=>{ const v=p.getValue(); if(v.startsWith("#")) return parseInt(v.slice(1),16); return v; }, fill:(v)=>{ if(typeof v==="number"){ p.setValue("#"+v.toString(16).padStart(6,"0")); } else if(typeof v==="string") p.setValue(v); } };
-  },
-  // 附魔
-  enchant(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加附魔";
-    const mk=(r={id:"minecraft:sharpness",lvl:1})=>{
-      const it=document.createElement("div"); it.className="item";
-      const idSel=document.createElement("select"); fillOptions(idSel, ENCHANT_IDS); idSel.value=r.id||"minecraft:sharpness";
-      const lvl=document.createElement("input"); lvl.type="number"; lvl.min=1; lvl.max=255; lvl.value=r.lvl||1;
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("附魔 ID"),idSel,labelOf("等级"),lvl,del); it.getValue=()=>({id:idSel.value,lvl:parseInt(lvl.value||"1",10)}); list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>{ const levels={}; Array.from(list.children).forEach(c=>{ const v=c.getValue(); levels[v.id]=v.lvl; }); return {levels}; }, fill:(v)=>{ list.innerHTML=""; const rows = v?.levels? Object.entries(v.levels).map(([id,lvl])=>({id,lvl})) : []; (rows.length?rows:[{id:"minecraft:sharpness",lvl:1}]).forEach(mk); } };
-  },
-  // 属性修饰符
-  attributes(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加修饰符";
-    const mk=(r={type:"minecraft:generic.attack_damage",amount:5,operation:"add_value",slot:["mainhand"],id:""} )=>{
-      const it=document.createElement("div"); it.className="item";
-      const typeSel=document.createElement("select"); fillOptions(typeSel, ATTR_TYPES); typeSel.value=r.type||"minecraft:generic.attack_damage";
-      const amount=document.createElement("input"); amount.type="number"; amount.step="any"; amount.value=r.amount??0;
-      const opSel=document.createElement("select"); fillOptions(opSel, ATTR_OPS); opSel.value=r.operation||"add_value";
-      const idInput=document.createElement("input"); idInput.placeholder="唯一 id（建议带命名空间）"; idInput.value=r.id||"";
-      const slots=document.createElement("div"); slots.className="checkboxes"; ATTR_SLOTS.forEach(s=>{ const lab=document.createElement("label"); const ck=document.createElement("input"); ck.type="checkbox"; ck.value=s; if((r.slot||[]).includes(s)) ck.checked=true; lab.append(ck, document.createTextNode(" "+s)); slots.append(lab); });
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("属性"),typeSel,labelOf("数值 amount"),amount,labelOf("运算 operation"),opSel,labelOf("唯一ID"),idInput,labelOf("槽位"),slots,del);
-      it.getValue=()=>({type:typeSel.value, amount:Number(amount.value||0), operation:opSel.value, id:idInput.value?ns(idInput.value):undefined, slot:Array.from(slots.querySelectorAll('input[type=checkbox]:checked')).map(x=>x.value)});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>({modifiers:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.modifiers||[]).forEach(mk); if(!list.children.length) mk({}); } };
-  },
-  // repairable
-  repairable(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加材料";
-    const mk=(r={item:"minecraft:iron_ingot",amount:1})=>{
-      const it=document.createElement("div"); it.className="item";
-      const id=document.createElement("input"); id.placeholder="材料 ID"; id.value=r.item||"minecraft:iron_ingot";
-      const amt=document.createElement("input"); amt.type="number"; amt.min=1; amt.value=r.amount||1;
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("材料 ID"),id,labelOf("修复量"),amt,del); it.getValue=()=>({item:ns(id.value.trim()), amount:parseInt(amt.value||"1",10)});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>({items:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.items||[]).forEach(mk); if(!list.children.length) mk({}); } };
-  },
-  // container
-  container(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加槽位物品";
-    const mk=(r={slot:0,id:"minecraft:stone",count:1,components:null})=>{
-      const it=document.createElement("div"); it.className="item";
-      const slot=document.createElement("input"); slot.type="number"; slot.min=0; slot.max=255; slot.value=r.slot??0;
-      const id=document.createElement("input"); id.placeholder="物品 ID"; id.value=r.id||"minecraft:stone";
-      const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=99; cnt.value=r.count||1;
-      const comp=document.createElement("textarea"); comp.placeholder='嵌套 components（可选）';
-      comp.value = r.components? JSON.stringify(r.components,null,2):"";
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("槽位"),slot,labelOf("物品 ID"),id,labelOf("数量"),cnt,labelOf("子组件 JSON"),comp,del);
-      it.getValue=()=>{ let nested=null; const raw=comp.value.trim(); if(raw){ try{ nested=JSON.parse(raw) }catch(e){ alert("子组件 JSON 解析失败："+e.message); throw e; } } return {slot:parseInt(slot.value||"0",10), id:ns(id.value.trim()), count:parseInt(cnt.value||"1",10), components:nested}; };
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=> Array.from(list.children).map(c=>{ const x=c.getValue(); const item={id:x.id,count:x.count}; if(x.components) item.components=x.components; return {slot:x.slot, item}; }), fill:(v)=>{ list.innerHTML=""; (Array.isArray(v)?v:[]).forEach(ent=>mk({slot:ent.slot,id:ent.item?.id,count:ent.item?.count,components:ent.item?.components})); if(!list.children.length) mk({}); } };
-  },
-  container_loot(){
-    const w=document.createElement("div");
-    const lt=document.createElement("input"); lt.placeholder="战利品表 ID（如 minecraft:chests/simple_dungeon）";
-    const sd=document.createElement("input"); sd.type="number"; sd.placeholder="seed（可选）";
-    w.append(labelOf("战利品表 ID"),lt,labelOf("seed"),sd);
-    return { el:w, build:()=>{ const out={loot_table:ns(lt.value.trim())}; if(sd.value!=="") out.seed=Number(sd.value); return out; }, fill:(v)=>{ lt.value=v?.loot_table||""; sd.value = v?.seed??""; } };
-  },
-  bundle(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加物品";
-    const mk=(r={id:"minecraft:stone",count:1})=>{
-      const it=document.createElement("div"); it.className="item";
-      const id=document.createElement("input"); id.placeholder="物品 ID"; id.value=r.id||"minecraft:stone";
-      const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=99; cnt.value=r.count||1;
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("物品 ID"),id,labelOf("数量"),cnt,del);
-      it.getValue=()=>({id:ns(id.value.trim()), count:parseInt(cnt.value||"1",10)});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>({items:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.items||[]).forEach(mk); if(!list.children.length) mk({}); } };
-  },
-  charged(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加弹药";
-    const mk=(r={id:"minecraft:arrow",count:1})=>{
-      const it=document.createElement("div"); it.className="item";
-      const id=document.createElement("input"); id.placeholder="弹药 ID"; id.value=r.id||"minecraft:arrow";
-      const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=99; cnt.value=r.count||1;
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("弹药 ID"),id,labelOf("数量"),cnt,del);
-      it.getValue=()=>({id:ns(id.value.trim()), count:parseInt(cnt.value||"1",10)});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>({projectiles:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.projectiles||[]).forEach(mk); if(!list.children.length) mk({}); } };
-  },
-  lodestone(){
-    const box=document.createElement("div");
-    const x=document.createElement("input"); x.type="number"; const y=document.createElement("input"); y.type="number"; const z=document.createElement("input"); z.type="number";
-    const dim=document.createElement("input"); dim.placeholder="minecraft:overworld"; const tracked=document.createElement("select"); fillOptions(tracked,["默认","追踪中"]);
-    box.append(labelOf("X"),x,labelOf("Y"),y,labelOf("Z"),z,labelOf("维度"),dim,labelOf("状态"),tracked);
-    return { el:box, build:()=>{ const v={pos:{x:Math.floor(x.value||0),y:Math.floor(y.value||0),z:Math.floor(z.value||0)},dimension: ns(dim.value||"minecraft:overworld")}; if(tracked.value==="追踪中") v.tracked=true; return v; }, fill:(v)=>{ x.value=v?.pos?.x??""; y.value=v?.pos?.y??""; z.value=v?.pos?.z??""; dim.value=v?.dimension||""; tracked.value=v?.tracked? "追踪中":"默认"; } };
-  },
-  // consumable
-  consumable(){
-    const box=document.createElement("div");
-    const sec=document.createElement("input"); sec.type="number"; sec.step="0.1"; sec.value=1.6;
-    const anim=document.createElement("select"); fillOptions(anim, ["eat","drink","block","bow","crossbow","spear","brush","spyglass","telescope","none"]);
-    box.append(labelOf("耗时（秒）"),sec,labelOf("动画"),anim);
-    return { el:box, build:()=>({consume_seconds:parseFloat(sec.value||"1.6"), use_animation:anim.value}), fill:(v)=>{ if(v?.consume_seconds!=null) sec.value=v.consume_seconds; if(v?.use_animation) anim.value=v.use_animation; } };
-  },
-  // food
-  food(){
-    const box=document.createElement("div");
-    const sat=document.createElement("input"); sat.type="number"; sat.placeholder="饱和"; sat.step="1";
-    const nut=document.createElement("input"); nut.type="number"; nut.placeholder="营养"; nut.step="1";
-    const canWolf=document.createElement("select"); fillOptions(canWolf,["默认","可喂狼","不可喂狼"]);
-    box.append(labelOf("营养（nutrition）"),nut,labelOf("饱和（saturation）"),sat,labelOf("可喂狼"),canWolf);
-    return { el:box, build:()=>{ const v={}; if(nut.value!=="") v.nutrition=parseInt(nut.value,10); if(sat.value!=="") v.saturation=parseInt(sat.value,10); if(canWolf.value!=="默认") v.can_always_eat = (canWolf.value==="可喂狼"); return v; }, fill:(v)=>{ nut.value=v?.nutrition??""; sat.value=v?.saturation??""; canWolf.value="默认"; } };
-  },
-  // potion
-  potion(){
-    const box=document.createElement("div");
-    const pot=document.createElement("input"); pot.placeholder="药水 ID（如 minecraft:swiftness）";
-    const col=makeColorPicker({presetList:DYE_COLORS, initial:"custom"});
-    const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加自定义效果";
-    const mk=(r={id:"minecraft:speed",duration:200,amplifier:0,ambient:false,show_particles:true,show_icon:true})=>{
-      const it=document.createElement("div"); it.className="item";
-      const id=document.createElement("input"); id.placeholder="效果 ID"; id.value=r.id;
-      const du=document.createElement("input"); du.type="number"; du.value=r.duration;
-      const amp=document.createElement("input"); amp.type="number"; amp.value=r.amplifier;
-      const amb=document.createElement("select"); fillOptions(amb,["false","true"]); amb.value = r.ambient? "true":"false";
-      const par=document.createElement("select"); fillOptions(par,["true","false"]); par.value = (r.show_particles!==false)? "true":"false";
-      const ico=document.createElement("select"); fillOptions(ico,["true","false"]); ico.value = (r.show_icon!==false)? "true":"false";
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("效果 ID"),id,labelOf("时长"),du,labelOf("等级"),amp,labelOf("ambient"),amb,labelOf("粒子"),par,labelOf("图标"),ico,del);
-      it.getValue=()=>({id:ns(id.value.trim()),duration:parseInt(du.value||"0",10),amplifier:parseInt(amp.value||"0",10),ambient:(amb.value==="true"),show_particles:(par.value==="true"),show_icon:(ico.value==="true")});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(labelOf("基础药水"),pot,labelOf("自定义颜色（可选）"),col.el,list,btn);
-    return { el:box, build:()=>{ const out={}; if(pot.value.trim()) out.potion=ns(pot.value.trim()); const v=col.getValue(); if(v && v.startsWith("#")) out.custom_color = parseInt(v.slice(1),16); if(list.children.length){ out.custom_effects = Array.from(list.children).map(c=>c.getValue()); } return out; }, fill:(v)=>{ pot.value=v?.potion||""; if(v?.custom_color!=null) col.setValue("#"+v.custom_color.toString(16).padStart(6,"0")); list.innerHTML=""; (v?.custom_effects||[]).forEach(mk); } };
-  },
-  // 可写书
-  book_writable(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="新增一页";
-    const mk=(txt="")=>{ const it=document.createElement("div"); it.className="item"; const p=document.createElement("textarea"); p.rows=3; p.value=txt; const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove(); it.append(labelOf("页内容"),p,del); it.getValue=()=>({text:p.value}); list.append(it); };
-    btn.onclick=()=>mk("");
-    box.append(list,btn);
-    return { el:box, build:()=>({pages:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.pages||[""]).forEach(p=>mk(p.text||"")); } };
-  },
-  // 成书
-  book_written(){
-    const box=document.createElement("div");
-    const author=document.createElement("input"); author.placeholder="作者";
-    const title=document.createElement("input"); title.placeholder="书名";
-    const gen=document.createElement("select"); fillOptions(gen, ["original","copy","copy_of_copy"]);
-    const res=document.createElement("select"); fillOptions(res, ["false","true"]);
-    box.append(labelOf("作者"),author,labelOf("书名"),title,labelOf("代数"),gen,labelOf("解析文本（resolved）"),res);
-    return { el:box, build:()=>({author:author.value||"", title:title.value||undefined, generation:gen.value, resolved: (res.value==="true")}), fill:(v)=>{ author.value=v?.author||""; title.value=v?.title||""; if(v?.generation) gen.value=v.generation; res.value = v?.resolved? "true":"false"; } };
-  },
-  // 唱片
-  jukebox(){
-    const s=document.createElement("select"); fillOptions(s, MUSIC_DISCS);
-    return { el:s, build:()=>({song:s.value}), fill:(v)=>{ if(v?.song) s.value=v.song; } };
-  },
-  // 山羊角乐器
-  instrument(){
-    const s=document.createElement("select"); fillOptions(s, INSTRUMENTS);
-    return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
-  },
-  // 音符盒
-  note_block(){
-    const s=document.createElement("select"); fillOptions(s, NOTE_BLOCK_SOUNDS);
-    return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
-  },
-  // 旗帜图案
-  banner(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加图案";
-    const mk=(r={pattern:"minecraft:stripe_center", color:"white"})=>{
-      const it=document.createElement("div"); it.className="item";
-      const pat=document.createElement("input"); pat.placeholder="图案 ID（如 minecraft:stripe_center）"; pat.value=r.pattern||"";
-      const col=makeColorPicker({presetList:DYE_COLORS, initial: r.color||"white"});
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("图案 ID"),pat,labelOf("颜色"),col.el,del);
-      it.getValue=()=>({pattern:ns(pat.value.trim()), color: col.getValue()});
-      list.append(it);
-    };
-    btn.onclick=()=>mk({});
-    box.append(list,btn);
-    return { el:box, build:()=>({patterns:Array.from(list.children).map(c=>c.getValue())}), fill:(v)=>{ list.innerHTML=""; (v?.patterns||[]).forEach(mk); if(!list.children.length) mk({}); } };
-  },
-  // 陶罐
-  pottery(){
-    const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加陶片";
-    const mk=(id="minecraft:angler_pottery_sherd")=>{
-      const it=document.createElement("div"); it.className="item";
-      const sel=document.createElement("select"); fillOptions(sel, POTTERY_SHERDS); sel.value=id;
-      const del=document.createElement("button"); del.textContent="删除"; del.className="danger-btn"; del.onclick=()=>it.remove();
-      it.append(labelOf("陶片 ID"),sel,del); it.getValue=()=>sel.value; list.append(it);
-    };
-    btn.onclick=()=>mk("minecraft:angler_pottery_sherd");
-    box.append(list,btn);
-    return { el:box, build:()=>Array.from(list.children).map(c=>c.getValue()), fill:(v)=>{ list.innerHTML=""; (Array.isArray(v)?v:[]).forEach(mk); if(!list.children.length) mk(); } };
-  },
-  // equippable
-  equippable(){
-    const box=document.createElement("div");
-    const slot=document.createElement("select"); fillOptions(slot, ["head","chest","legs","feet","mainhand","offhand"]);
-    const model=document.createElement("input"); model.placeholder="佩戴时模型 ID（可选）";
-    const dmg=document.createElement("select"); fillOptions(dmg, ["false","true"]);
-    box.append(labelOf("槽位"),slot,labelOf("模型 ID"),model,labelOf("受伤掉耐久（damage_on_hurt）"),dmg);
-    return { el:box, build:()=>{ const v={slot:slot.value}; if(model.value.trim()) v.model=model.value.trim(); if(dmg.value==="true") v.damage_on_hurt=true; return v; }, fill:(v)=>{ if(v?.slot) slot.value=v.slot; if(v?.model) model.value=v.model; if(typeof v?.damage_on_hurt==="boolean") dmg.value = v.damage_on_hurt?"true":"false"; } };
-  },
-  // recipes
-  recipes(){
-    const t=document.createElement("textarea"); t.placeholder="每行一个配方 ID"; return { el:t, build:()=>t.value.split("\n").map(s=>s.trim()).filter(Boolean).map(ns), fill:(v)=>{ t.value = (Array.isArray(v)?v:[]).join("\n"); } };
+    list.append(it);
   }
+  addBtn.onclick=()=>{ mkSeg({}); updatePreview(); };
+  wrap.append(list,addBtn);
+  // 默认一个段落
+  mkSeg({});
+  return {
+    el:wrap,
+    build:()=>{
+      const segs=Array.from(list.children).map(ch=>ch.getValue());
+      if(segs.length===0) return {text:""};
+      // 第一段作为根，其余放在 extra
+      const root=Object.assign({}, segs[0]);
+      const extras=segs.slice(1);
+      if(extras.length) root.extra=extras;
+      return root;
+    },
+    fill:(v)=>{
+      list.innerHTML="";
+      if(typeof v === "string"){ mkSeg({text:v}); }
+      else if(v){
+        const segs=[];
+        // root
+        const base={text:v.text||""};
+        ["color","bold","italic","underlined","strikethrough","obfuscated"].forEach(k=>{ if(v[k]!=null) base[k]=v[k]; });
+        segs.push(base);
+        if(Array.isArray(v.extra)) v.extra.forEach(e=>{ segs.push(e); });
+        segs.forEach(s=>mkSeg(s));
+      } else mkSeg({});
+    }
+  };
 };
 
-/* =================== 基础表单 & 组件卡逻辑 =================== */
-const itemIdEl=document.getElementById("itemId");
-const countEl=document.getElementById("count");
-const targetEl=document.getElementById("target");
-const componentSelect=document.getElementById("componentSelect");
-const componentsArea=document.getElementById("componentsArea");
-const cmdEl=document.getElementById("cmd");
-const rawComponentsEl=document.getElementById("rawComponents");
+// Lore: 多行文本（每行支持颜色与简单文本）
+Helper.lore = function(){
+  const wrap=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const addBtn=document.createElement("button"); addBtn.textContent="添加行";
+  function mkLine(line={text:"",color:"gray"}){
+    const it=document.createElement("div"); it.className="item";
+    const txt=document.createElement("input"); txt.placeholder="文本"; txt.value=line.text||"";
+    const col=makeColorPicker({presetList:CHAT_COLORS, initial: line.color||"gray"});
+    const del=document.createElement("button"); del.textContent="删除行"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("文本"),txt,label("颜色"),col.el,del);
+    it.getValue=()=>({text:txt.value||"", color: col.getValue()||"gray"});
+    it.setValue=(v)=>{ txt.value=v.text||""; if(v.color) col.setValue(v.color); };
+    list.append(it);
+  }
+  addBtn.onclick=()=>{ mkLine({}); updatePreview(); };
+  wrap.append(list,addBtn);
+  mkLine({});
+  return {
+  el:wrap,
+  build:()=> Array.from(list.children).map(ch=>ch.getValue()),
+  fill:(v)=>{
+    list.innerHTML="";
+    const arr = Array.isArray(v) ? v : (v && Array.isArray(v.lines) ? v.lines : [{text:"",color:"gray"}]);
+    arr.forEach(mkLine);
+  }
+};
+};
 
-// 填充组件选择器（按组）
+// Rarity 简单枚举
+Helper.rarity = function(){ const s=document.createElement("select"); fillOptions(s,RARITIES);
+  return { el:s, build:()=>s.value, fill:(v)=>{ if(RARITIES.includes(v)) s.value=v; } }; };
+
+// Dyed_color：颜色 + 光效覆盖
+Helper.dyed_color = function(){
+  const col=makeColorPicker({presetList:DYE_COLORS, initial:"white"});
+  const gl=document.createElement("input"); gl.type="checkbox";
+  const wrap=document.createElement("div"); wrap.append(label("颜色"),col.el,label("附魔光效"), (()=>{
+    const lab=document.createElement("label"); const cb=document.createElement("input"); cb.type="checkbox"; lab.append(cb, document.createTextNode(" 强制启用")); return lab;
+  })());
+  return {
+    el:wrap,
+    build:()=>{
+      const v={color: col.getValue()};
+      const glint = wrap.querySelector("input[type=checkbox]").checked;
+      if(glint) v.show_glint_override=true;
+      return v;
+    },
+    fill:(v)=>{
+      if(v?.color) col.setValue(v.color);
+      wrap.querySelector("input[type=checkbox]").checked = !!v?.show_glint_override;
+    }
+  };
+};
+
+// Trim 盔甲纹饰
+Helper.trim = function(){
+  const m=document.createElement("select"); fillOptions(m,TRIM_MATERIALS);
+  const p=document.createElement("select"); fillOptions(p,TRIM_PATTERNS);
+  const box=document.createElement("div"); box.append(label("材料"),m,label("图案"),p);
+  return { el:box, build:()=>({material:m.value, pattern:p.value}), fill:(v)=>{ if(v?.material) m.value=v.material; if(v?.pattern) p.value=v.pattern; } };
+};
+
+// base_color 盾牌基色（染料名）
+Helper.base_color = function(){
+  const s=document.createElement("select"); fillOptions(s,DYE_COLORS.map(x=>x[0]));
+  return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
+};
+
+// hex_to_int：颜色转换为整数
+Helper.hex_to_int = function(){
+  const picker=makeColorPicker({presetList:DYE_COLORS, initial:"#ffffff"});
+  const box=document.createElement("div"); box.append(label("颜色"), picker.el);
+  return { el:box, build:()=>{ const val=picker.getValue(); if(val.startsWith("#")) return parseInt(val.slice(1),16); return val; }, fill:(v)=>{ if(typeof v==="number"){ picker.setValue("#"+v.toString(16).padStart(6,"0")); } else if(typeof v==="string") picker.setValue(v); } };
+};
+
+// enchant：附魔列表（带翻译）
+Helper.enchant = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加附魔";
+  function mk(row={id:"minecraft:sharpness",lvl:1}){
+    const it=document.createElement("div"); it.className="item";
+    const sel=document.createElement("select");
+    // 构建选项并附加翻译
+    ENCHANT_IDS.forEach(id=>{ const opt=document.createElement("option"); opt.value=id; opt.textContent=(TRANSLATE[id]||id.split(":")[1]) + " ("+id+")"; sel.appendChild(opt); });
+    sel.value=row.id||"minecraft:sharpness";
+    const lvl=document.createElement("input"); lvl.type="number"; lvl.min=1; lvl.max=255; lvl.value=row.lvl||1;
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("附魔"),sel,label("等级"),lvl,del);
+    it.getValue=()=>({id:sel.value, lvl: parseInt(lvl.value||"1",10)});
+    it.setValue=(v)=>{ sel.value=v.id||"minecraft:sharpness"; lvl.value=v.lvl||1; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  // 初始一行
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>{
+      const levels={}; Array.from(list.children).forEach(ch=>{ const v=ch.getValue(); levels[v.id]=v.lvl; }); return {levels}; },
+    fill:(v)=>{
+      list.innerHTML="";
+      if(v && v.levels){ Object.entries(v.levels).forEach(([id,lvl])=>mk({id,lvl})); }
+      if(!list.children.length) mk({});
+    }
+  };
+};
+
+// 属性修饰符
+Helper.attributes = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加修饰符";
+  function mk(r={type:"minecraft:generic.attack_damage",amount:1,operation:"add_value",slot:["mainhand"],id:""}){
+    const it=document.createElement("div"); it.className="item";
+    const typeSel=document.createElement("select");
+    ATTR_TYPES.forEach(id=>{ const opt=document.createElement("option"); opt.value=id; opt.textContent=(TRANSLATE[id]||id.split(":")[1]) + " ("+id+")"; typeSel.appendChild(opt); });
+    typeSel.value=r.type||"minecraft:generic.attack_damage";
+    const amt=document.createElement("input"); amt.type="number"; amt.step="any"; amt.value=r.amount??1;
+    const opSel=document.createElement("select"); fillOptions(opSel, ATTR_OPS); opSel.value=r.operation||"add_value";
+    const idInput=document.createElement("input"); idInput.placeholder="唯一ID（可选）"; idInput.value=r.id||"";
+    const slotWrap=document.createElement("div"); slotWrap.className="checkboxes";
+    ATTR_SLOTS.forEach(s=>{ const lab=document.createElement("label"); const ck=document.createElement("input"); ck.type="checkbox"; ck.value=s; ck.checked=(r.slot||[]).includes(s); lab.append(ck, document.createTextNode(" "+s)); slotWrap.append(lab); });
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("属性"),typeSel,label("数值"),amt,label("运算"),opSel,label("ID"),idInput,label("槽位"),slotWrap,del);
+    it.getValue=()=>{
+      return {
+        type:typeSel.value,
+        amount: parseFloat(amt.value||"0"),
+        operation: opSel.value,
+        id: idInput.value.trim()? ns(idInput.value.trim()) : undefined,
+        slot: Array.from(slotWrap.querySelectorAll('input[type=checkbox]:checked')).map(x=>x.value)
+      };
+    };
+    it.setValue=(v)=>{
+      if(v?.type) typeSel.value=v.type;
+      if(v?.amount!=null) amt.value=v.amount;
+      if(v?.operation) opSel.value=v.operation;
+      if(v?.id) idInput.value=v.id;
+      Array.from(slotWrap.querySelectorAll('input[type=checkbox]')).forEach(ck=>{ ck.checked=(v?.slot||[]).includes(ck.value); });
+    };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>({modifiers: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.modifiers||[]).forEach(mk); if(!list.children.length) mk({}); }
+  };
+};
+
+// repairable 材料列表
+Helper.repairable = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加材料";
+  function mk(r={item:"minecraft:iron_ingot", amount:1}){
+    const it=document.createElement("div"); it.className="item";
+    const id=document.createElement("input"); id.placeholder="材料ID"; id.value=r.item||"minecraft:iron_ingot";
+    const amt=document.createElement("input"); amt.type="number"; amt.min=1; amt.value=r.amount||1;
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("材料ID"),id,label("修复量"),amt,del);
+    it.getValue=()=>({item: ns(id.value.trim()), amount: parseInt(amt.value||"1",10)});
+    it.setValue=(v)=>{ if(v?.item) id.value=v.item; if(v?.amount!=null) amt.value=v.amount; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>({items: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.items||[]).forEach(mk); if(!list.children.length) mk({}); }
+  };
+};
+
+// Container: 容器内物品列表
+Helper.container = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加槽位物品";
+  function mk(r={slot:0,id:"minecraft:stone",count:1,components:null}){
+    const it=document.createElement("div"); it.className="item";
+    const slot=document.createElement("input"); slot.type="number"; slot.min=0; slot.max=255; slot.value=r.slot??0;
+    const id=document.createElement("input"); id.placeholder="物品ID"; id.value=r.id||"minecraft:stone";
+    const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=2147483647; cnt.value=r.count||1;
+    const comp=document.createElement("textarea"); comp.placeholder="嵌套组件 JSON (可选)";
+    comp.value = r.components ? JSON.stringify(r.components, null, 2) : "";
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("槽位"),slot,label("物品ID"),id,label("数量"),cnt,label("子组件JSON"),comp,del);
+    it.getValue=()=>{
+      let nested=null;
+      const raw=comp.value.trim();
+      if(raw){ try{ nested=JSON.parse(raw); } catch(e){ alert("子组件 JSON 解析失败："+e.message); throw e; } }
+      return {slot: parseInt(slot.value||"0",10), id: ns(id.value.trim()), count: parseInt(cnt.value||"1",10), components: nested};
+    };
+    it.setValue=(v)=>{
+      slot.value=v?.slot??0;
+      id.value=v?.id||"";
+      cnt.value=v?.count||1;
+      comp.value=v?.components ? JSON.stringify(v.components,null,2) : "";
+    };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>{
+      return list.children.length ? Array.from(list.children).map(ch=>{
+        const v=ch.getValue(); const item={id:v.id, count:v.count}; if(v.components) item.components=v.components; return {slot:v.slot, item};
+      }) : [];
+    },
+    fill:(v)=>{
+      list.innerHTML="";
+      (Array.isArray(v)?v:[]).forEach(ent=>{ mk({slot:ent.slot, id:ent.item?.id, count:ent.item?.count, components:ent.item?.components}); });
+      if(!list.children.length) mk({});
+    }
+  };
+};
+
+// container_loot: 战利品表引用
+Helper.container_loot = function(){
+  const box=document.createElement("div"); const lt=document.createElement("input"); lt.placeholder="战利品表 ID，如 minecraft:chests/simple_dungeon";
+  const seed=document.createElement("input"); seed.type="number"; seed.placeholder="seed (可选)";
+  box.append(label("战利品表 ID"),lt,label("seed"),seed);
+  return {
+    el:box,
+    build:()=>{
+      const out={loot_table: ns(lt.value.trim())}; if(seed.value!=="") out.seed= parseInt(seed.value,10); return out;
+    },
+    fill:(v)=>{ lt.value=v?.loot_table||""; seed.value = v?.seed??""; }
+  };
+};
+
+// bundle_contents: 收纳袋
+Helper.bundle = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加物品";
+  function mk(r={id:"minecraft:stone",count:1}){
+    const it=document.createElement("div"); it.className="item";
+    const id=document.createElement("input"); id.placeholder="物品ID"; id.value=r.id||"minecraft:stone";
+    const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=2147483647; cnt.value=r.count||1;
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("物品ID"),id,label("数量"),cnt,del);
+    it.getValue=()=>({id:ns(id.value.trim()), count:parseInt(cnt.value||"1",10)});
+    it.setValue=(v)=>{ id.value=v?.id||""; cnt.value=v?.count||1; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>({items: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.items||[]).forEach(mk); if(!list.children.length) mk({}); }
+  };
+};
+
+// charged_projectiles: 弩装弹
+Helper.charged = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加弹药";
+  function mk(r={id:"minecraft:arrow",count:1}){
+    const it=document.createElement("div"); it.className="item";
+    const id=document.createElement("input"); id.placeholder="弹药 ID"; id.value=r.id||"minecraft:arrow";
+    const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=2147483647; cnt.value=r.count||1;
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("弹药ID"),id,label("数量"),cnt,del);
+    it.getValue=()=>({id:ns(id.value.trim()), count:parseInt(cnt.value||"1",10)});
+    it.setValue=(v)=>{ id.value=v?.id||""; cnt.value=v?.count||1; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list,btn);
+  return {
+    el:box,
+    build:()=>({projectiles: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.projectiles||[]).forEach(mk); if(!list.children.length) mk({}); }
+  };
+};
+
+// lodestone_tracker
+Helper.lodestone = function(){
+  const box=document.createElement("div");
+  const x=document.createElement("input"); x.type="number";
+  const y=document.createElement("input"); y.type="number";
+  const z=document.createElement("input"); z.type="number";
+  const dim=document.createElement("input"); dim.placeholder="minecraft:overworld";
+  const tracked=document.createElement("input"); tracked.type="checkbox";
+  const labTrk=document.createElement("label"); labTrk.append(tracked, document.createTextNode(" 追踪中"));
+  box.append(label("X"),x,label("Y"),y,label("Z"),z,label("维度"),dim,labTrk);
+  return {
+    el:box,
+    build:()=>{
+      const v={pos:{x:Math.floor(x.value||0),y:Math.floor(y.value||0),z:Math.floor(z.value||0)}, dimension: ns(dim.value||"minecraft:overworld")};
+      if(tracked.checked) v.tracked=true; return v;
+    },
+    fill:(v)=>{
+      x.value=v?.pos?.x??"";
+      y.value=v?.pos?.y??"";
+      z.value=v?.pos?.z??"";
+      dim.value=v?.dimension||"";
+      tracked.checked=!!v?.tracked;
+    }
+  };
+};
+
+// consumable
+Helper.consumable = function(){
+  const box=document.createElement("div");
+  const duration=document.createElement("input"); duration.type="number"; duration.step="0.1"; duration.min=0; duration.value=1.6;
+  const anim=document.createElement("select");
+  // 消耗动画：无（none）、吃（eat）、喝（drink）、举盾（block）、弓（bow）、刷子（brush）、弩（crossbow）、
+  // 投矛（spear）、望远镜（spyglass）、号角（toot_horn）、收纳袋（bundle）。
+  fillOptions(anim, ["none","eat","drink","block","bow","brush","crossbow","spear","spyglass","toot_horn","bundle"]);
+  const particles=document.createElement("input"); particles.type="checkbox";
+  const sound=document.createElement("input"); sound.placeholder="消耗音效 ID，可选";
+  const effectsList=document.createElement("div"); effectsList.className="list";
+  const addEffect=document.createElement("button"); addEffect.textContent="添加效果";
+  function mkEffect(r={type:"apply_effects", probability:1, effects:[], remove_effects:[], diameter:16, sound:""}){
+    const it=document.createElement("div"); it.className="item";
+    const typeSel=document.createElement("select"); fillOptions(typeSel, CONSUME_EFFECT_TYPES); typeSel.value=r.type||"apply_effects";
+    const container=document.createElement("div");
+    function render(){
+      container.innerHTML="";
+      const t=typeSel.value;
+      if(t==="apply_effects"){
+        const prob=document.createElement("input"); prob.type="number"; prob.step="0.01"; prob.min=0; prob.max=1; prob.value=r.probability??1;
+        const list=document.createElement("div"); list.className="list";
+        const add=document.createElement("button"); add.textContent="添加状态效果";
+        function mkStatus(s={id:"minecraft:speed", duration:200, amplifier:0, show_particles:true, show_icon:true, probability:1}){
+          const row=document.createElement("div"); row.className="item";
+          const id=document.createElement("input"); id.placeholder="效果ID"; id.value=s.id||"minecraft:speed";
+          const dur=document.createElement("input"); dur.type="number"; dur.min=0; dur.value=s.duration||200;
+          const amp=document.createElement("input"); amp.type="number"; amp.min=0; amp.value=s.amplifier||0;
+          const probE=document.createElement("input"); probE.type="number"; probE.step="0.01"; probE.min=0; probE.max=1; probE.value=s.probability??1;
+          const showIcon=document.createElement("input"); showIcon.type="checkbox"; showIcon.checked=(s.show_icon!==false);
+          const showParticles=document.createElement("input"); showParticles.type="checkbox"; showParticles.checked=(s.show_particles!==false);
+          const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ row.remove(); updatePreview(); };
+          row.append(label("效果ID"),id,label("时长"),dur,label("等级"),amp,label("概率"),probE, (()=>{ const lb=document.createElement("label"); lb.append(showParticles, document.createTextNode(" 粒子")); return lb; })(), (()=>{ const lb=document.createElement("label"); lb.append(showIcon, document.createTextNode(" 图标")); return lb; })(), del);
+          row.getValue=()=>({id: ns(id.value.trim()), duration: parseInt(dur.value||"0",10), amplifier: parseInt(amp.value||"0",10), probability: parseFloat(probE.value||"1"), show_particles: showParticles.checked, show_icon: showIcon.checked});
+          list.append(row);
+        }
+        add.onclick=()=>{ mkStatus({}); updatePreview(); };
+        (r.effects||[]).forEach(mkStatus);
+        if(!list.children.length) mkStatus({});
+        container.append(label("整体概率"), prob, label("状态效果列表"), list, add);
+        it.getValue=()=>{
+          return {type:"apply_effects", probability: parseFloat(prob.value||"1"), effects: Array.from(list.children).map(c=>c.getValue())};
+        };
+      } else if(t==="remove_effects"){
+        const list=document.createElement("div"); list.className="list";
+        const add=document.createElement("button"); add.textContent="添加要移除的效果ID";
+        function mkRow(val="minecraft:speed"){ const row=document.createElement("div"); row.className="item"; const id=document.createElement("input"); id.placeholder="效果ID或#标签"; id.value=val; const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ row.remove(); updatePreview(); }; row.append(id,del); row.getValue=()=>ns(id.value.trim()); list.append(row); }
+        (r.remove_effects||[]).forEach(mkRow);
+        if(!list.children.length) mkRow("minecraft:speed");
+        add.onclick=()=>{ mkRow(); updatePreview(); };
+        container.append(label("要移除的效果"), list, add);
+        it.getValue=()=>({type:"remove_effects", effects: Array.from(list.children).map(c=>c.getValue())});
+      } else if(t==="play_sound"){
+        const s=document.createElement("input"); s.placeholder="声音事件 ID"; s.value=r.sound||"";
+        container.append(label("声音 ID"), s);
+        it.getValue=()=>({type:"play_sound", sound: s.value.trim()||""});
+      } else if(t==="teleport_randomly"){
+        const d=document.createElement("input"); d.type="number"; d.min=0; d.step="1"; d.value=r.diameter||16;
+        container.append(label("传送半径"), d);
+        it.getValue=()=>({type:"teleport_randomly", diameter: parseFloat(d.value||"16")});
+      } else if(t==="clear_all_effects"){
+        container.append(document.createTextNode("使用后移除所有状态效果。"));
+        it.getValue=()=>({type:"clear_all_effects"});
+      }
+    }
+    typeSel.addEventListener("change", ()=>{ render(); updatePreview(); });
+    render();
+    const del=document.createElement("button"); del.textContent="删除效果"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("效果类型"), typeSel, container, del);
+    effectsList.append(it);
+  }
+  addEffect.onclick=()=>{ mkEffect({}); updatePreview(); };
+  box.append(label("耗时 (秒)"), duration, label("动画"), anim, (()=>{ const lab=document.createElement("label"); lab.append(particles, document.createTextNode(" 使用时产生粒子")); return lab; })(), label("消耗音效"), sound, label("消耗效果"), effectsList, addEffect);
+  return {
+    el:box,
+    build:()=>{
+      const obj={consume_seconds: parseFloat(duration.value||"1.6"), use_animation: anim.value, has_consume_particles: particles.checked};
+      if(sound.value.trim()) obj.sound = sound.value.trim();
+      obj.on_consume_effects = Array.from(effectsList.children).map(e=>e.getValue());
+      return obj;
+    },
+    fill:(v)=>{
+      duration.value=v?.consume_seconds??1.6;
+      anim.value=v?.use_animation||"eat";
+      particles.checked = !!v?.has_consume_particles;
+      sound.value=v?.sound||"";
+      effectsList.innerHTML="";
+      (v?.on_consume_effects||[]).forEach(eff=> mkEffect(eff));
+      if(!effectsList.children.length) mkEffect({});
+    }
+  };
+};
+
+// food: nutrition + saturation + can_always_eat
+Helper.food = function(){
+  const box=document.createElement("div");
+  const nutrition=document.createElement("input"); nutrition.type="number"; nutrition.min=0; nutrition.placeholder="营养值";
+  const saturation=document.createElement("input"); saturation.type="number"; saturation.min=0; saturation.step="any"; saturation.placeholder="饱和度";
+  const always=document.createElement("input"); always.type="checkbox";
+  const labAlways=document.createElement("label"); labAlways.append(always, document.createTextNode(" 可随时食用"));
+  box.append(label("营养"), nutrition, label("饱和"), saturation, labAlways);
+  return {
+    el:box,
+    build:()=>{
+      const obj={};
+      if(nutrition.value!="") obj.nutrition = parseInt(nutrition.value,10);
+      if(saturation.value!="") obj.saturation = parseFloat(saturation.value);
+      if(always.checked) obj.can_always_eat = true;
+      return obj;
+    },
+    fill:(v)=>{
+      nutrition.value=v?.nutrition??"";
+      saturation.value=v?.saturation??"";
+      always.checked=!!v?.can_always_eat;
+    }
+  };
+};
+
+// use_remainder: 使用后返还物品
+Helper.use_remainder = function(){
+  const box=document.createElement("div");
+  const id=document.createElement("input"); id.placeholder="物品ID";
+  const cnt=document.createElement("input"); cnt.type="number"; cnt.min=1; cnt.max=2147483647; cnt.value=1;
+  const comps=document.createElement("textarea"); comps.placeholder="组件 JSON (可选)";
+  box.append(label("物品ID"), id, label("数量"), cnt, label("组件JSON"), comps);
+  return {
+    el:box,
+    build:()=>{
+      const obj={id: ns(id.value.trim()), count: parseInt(cnt.value||"1",10)};
+      if(comps.value.trim()){ try{ obj.components=JSON.parse(comps.value); }catch(e){ alert("组件 JSON 解析错误："+e.message); } }
+      return obj;
+    },
+    fill:(v)=>{
+      id.value=v?.id||"";
+      cnt.value=v?.count||1;
+      comps.value=v?.components? JSON.stringify(v.components,null,2):"";
+    }
+  };
+};
+
+// potion_contents
+Helper.potion = function(){
+  const box=document.createElement("div");
+  const pot=document.createElement("input"); pot.placeholder="基础药水ID，如 minecraft:swiftness";
+  const col=makeColorPicker({presetList:DYE_COLORS, initial:"custom"});
+  const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加自定义效果";
+  function mkEff(r={id:"minecraft:speed",duration:200,amplifier:0,show_particles:true,show_icon:true}){
+    const it=document.createElement("div"); it.className="item";
+    const id=document.createElement("input"); id.placeholder="效果ID"; id.value=r.id||"minecraft:speed";
+    const dur=document.createElement("input"); dur.type="number"; dur.min=0; dur.value=r.duration||200;
+    const amp=document.createElement("input"); amp.type="number"; amp.min=0; amp.value=r.amplifier||0;
+    const icon=document.createElement("input"); icon.type="checkbox"; icon.checked=(r.show_icon!==false);
+    const particles=document.createElement("input"); particles.type="checkbox"; particles.checked=(r.show_particles!==false);
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    const labPar=document.createElement("label"); labPar.append(particles, document.createTextNode(" 粒子"));
+    const labIco=document.createElement("label"); labIco.append(icon, document.createTextNode(" 图标"));
+    it.append(label("效果ID"), id, label("时长"), dur, label("等级"), amp, labPar, labIco, del);
+    it.getValue=()=>({id: ns(id.value.trim()), duration: parseInt(dur.value||"0",10), amplifier: parseInt(amp.value||"0",10), show_particles: particles.checked, show_icon: icon.checked});
+    it.setValue=(v)=>{ id.value=v?.id||""; dur.value=v?.duration||0; amp.value=v?.amplifier||0; particles.checked=v?.show_particles!==false; icon.checked=v?.show_icon!==false; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mkEff({}); updatePreview(); };
+  mkEff({});
+  box.append(label("基础药水"), pot, label("自定义颜色"), col.el, label("自定义效果"), list, btn);
+  return {
+    el:box,
+    build:()=>{
+      const out={}; if(pot.value.trim()) out.potion = ns(pot.value.trim());
+      const c=col.getValue(); if(c && c.startsWith("#")) out.custom_color = parseInt(c.slice(1),16);
+      if(list.children.length) out.custom_effects = Array.from(list.children).map(c=>c.getValue());
+      return out;
+    },
+    fill:(v)=>{
+      pot.value=v?.potion||"";
+      if(v?.custom_color!=null) col.setValue("#"+v.custom_color.toString(16).padStart(6,"0"));
+      list.innerHTML="";
+      (v?.custom_effects||[]).forEach(mkEff);
+      if(!list.children.length) mkEff({});
+    }
+  };
+};
+
+// suspicious_stew_effects: 迷之炖菜
+Helper.stew = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加效果";
+  function mk(r={id:"minecraft:night_vision",duration:160}){
+    const it=document.createElement("div"); it.className="item";
+    const id=document.createElement("input"); id.placeholder="效果ID"; id.value=r.id||"minecraft:night_vision";
+    const dur=document.createElement("input"); dur.type="number"; dur.min=0; dur.value=r.duration||160;
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("效果ID"), id, label("时长"), dur, del);
+    it.getValue=()=>({id: ns(id.value.trim()), duration: parseInt(dur.value||"0",10)});
+    it.setValue=(v)=>{ id.value=v?.id||""; dur.value=v?.duration||0; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list, btn);
+  return {
+    el:box,
+    build:()=>({effects: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{
+      list.innerHTML="";
+      (v?.effects||[]).forEach(mk);
+      if(!list.children.length) mk({});
+    }
+  };
+};
+
+// book (writable)
+Helper.book_writable = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list"; const btn=document.createElement("button"); btn.textContent="添加一页";
+  function mk(p=""){
+    const it=document.createElement("div"); it.className="item";
+    const text=document.createElement("textarea"); text.rows=3; text.value=p||"";
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("页内容"), text, del);
+    it.getValue=()=>({text:text.value});
+    it.setValue=(v)=>{ text.value=v?.text||""; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk(""); updatePreview(); };
+  mk("");
+  box.append(list, btn);
+  return {
+    el:box,
+    build:()=>({pages: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.pages||[""]).forEach(p=>mk(p.text||"")); }
+  };
+};
+
+// book (written)
+Helper.book_written = function(){
+  const box=document.createElement("div");
+  const author=document.createElement("input"); author.placeholder="作者";
+  const title=document.createElement("input"); title.placeholder="书名";
+  const gen=document.createElement("select"); fillOptions(gen,["original","copy","copy_of_copy"]);
+  const resolved=document.createElement("input"); resolved.type="checkbox";
+  const labRes=document.createElement("label"); labRes.append(resolved, document.createTextNode(" 已解析（resolved）"));
+  box.append(label("作者"), author, label("书名"), title, label("代数"), gen, labRes);
+  return {
+    el:box,
+    build:()=>{
+      const o={author: author.value||"", generation: gen.value, resolved: resolved.checked};
+      if(title.value.trim()) o.title = title.value.trim();
+      return o;
+    },
+    fill:(v)=>{
+      author.value=v?.author||"";
+      title.value=v?.title||"";
+      gen.value=v?.generation||"original";
+      resolved.checked=!!v?.resolved;
+    }
+  };
+};
+
+// jukebox_playable
+Helper.jukebox = function(){
+  const s=document.createElement("select"); fillOptions(s, MUSIC_DISCS);
+  return { el:s, build:()=>({song:s.value}), fill:(v)=>{ if(v?.song) s.value=v.song; } };
+};
+
+// instrument (goat horn)
+Helper.instrument = function(){
+  const s=document.createElement("select"); fillOptions(s, INSTRUMENTS);
+  return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
+};
+
+// note_block_sound
+Helper.note_block = function(){ const s=document.createElement("select"); fillOptions(s, NOTE_BLOCK_SOUNDS);
+  return { el:s, build:()=>s.value, fill:(v)=>{ if(v) s.value=v; } };
+};
+
+// banner patterns
+Helper.banner = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加图案";
+  function mk(r={pattern:"minecraft:base", color:"white"}){
+    const it=document.createElement("div"); it.className="item";
+    const pat=document.createElement("input"); pat.placeholder="图案ID"; pat.value=r.pattern||"";
+    const col=makeColorPicker({presetList:DYE_COLORS, initial: r.color||"white"});
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("图案ID"), pat, label("颜色"), col.el, del);
+    it.getValue=()=>({pattern: ns(pat.value.trim()), color: col.getValue()||"white"});
+    it.setValue=(v)=>{ pat.value=v?.pattern||""; if(v?.color) col.setValue(v.color); };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(list, btn);
+  return {
+    el:box,
+    build:()=>({patterns: Array.from(list.children).map(c=>c.getValue())}),
+    fill:(v)=>{ list.innerHTML=""; (v?.patterns||[]).forEach(mk); if(!list.children.length) mk({}); }
+  };
+};
+
+// pottery decorations
+Helper.pottery = function(){
+  const box=document.createElement("div"); const list=document.createElement("div"); list.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加陶片";
+  function mk(id="minecraft:angler_pottery_sherd"){
+    const it=document.createElement("div"); it.className="item";
+    const sel=document.createElement("select"); fillOptions(sel,POTTERY_SHERDS);
+    sel.value=id||"minecraft:angler_pottery_sherd";
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(label("陶片ID"), sel, del);
+    it.getValue=()=> sel.value;
+    it.setValue=(v)=>{ if(v) sel.value=v; };
+    list.append(it);
+  }
+  btn.onclick=()=>{ mk("minecraft:angler_pottery_sherd"); updatePreview(); };
+  mk("minecraft:angler_pottery_sherd");
+  box.append(list, btn);
+  return {
+    el:box,
+    build:()=> Array.from(list.children).map(c=>c.getValue()),
+    fill:(v)=>{ list.innerHTML=""; (Array.isArray(v)?v:[]).forEach(mk); if(!list.children.length) mk("minecraft:angler_pottery_sherd"); }
+  };
+};
+
+// equippable
+Helper.equippable = function(){
+  const box=document.createElement("div");
+  const slot=document.createElement("select"); fillOptions(slot, ATTR_SLOTS);
+  const model=document.createElement("input"); model.placeholder="佩戴时模型ID (可选)";
+  const damage=document.createElement("input"); damage.type="checkbox";
+  const labDamage=document.createElement("label"); labDamage.append(damage, document.createTextNode(" 受伤掉耐久"));
+  box.append(label("槽位"), slot, label("模型ID"), model, labDamage);
+  return {
+    el:box,
+    build:()=>{
+      const v={slot: slot.value}; if(model.value.trim()) v.model = model.value.trim(); if(damage.checked) v.damage_on_hurt=true; return v;
+    },
+    fill:(v)=>{ slot.value=v?.slot||""; model.value=v?.model||""; damage.checked=!!v?.damage_on_hurt; }
+  };
+};
+
+// recipes: 知识之书
+Helper.recipes = function(){
+  const area=document.createElement("textarea"); area.placeholder="每行一个配方ID";
+  return { el:area, build:()=> area.value.split("\n").map(s=>s.trim()).filter(Boolean).map(ns), fill:(v)=>{ area.value=(Array.isArray(v)?v:[]).join("\n"); } };
+};
+
+// firework_explosion: 颜色、形状、拖曳、闪烁
+Helper.firework_explosion = function(){
+  const box=document.createElement("div");
+  const colList=document.createElement("div"); colList.className="list";
+  const fadeList=document.createElement("div"); fadeList.className="list";
+  const addColor=document.createElement("button"); addColor.textContent="添加颜色";
+  const addFade=document.createElement("button"); addFade.textContent="添加淡色";
+  const trail=document.createElement("input"); trail.type="checkbox";
+  const twinkle=document.createElement("input"); twinkle.type="checkbox";
+  const shape=document.createElement("select"); fillOptions(shape,["small_ball","large_ball","star","creeper","burst"]);
+  function mkColor(list, initial="#FFFFFF"){
+    const it=document.createElement("div"); it.className="item";
+    const picker=makeColorPicker({presetList:DYE_COLORS, initial: initial});
+    const del=document.createElement("button"); del.textContent="删除"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(picker.el, del);
+    it.getValue=()=>{
+      const v=picker.getValue();
+      // 转换颜色名/hex到整数
+      function hexToInt(hex){ return parseInt(hex.slice(1),16) & 0xFFFFFF; }
+      // 预设染料名
+      const match=DYE_COLORS.find(x=>x[0]===v);
+      if(match) return parseInt(match[1].slice(1),16);
+      if(v.startsWith("#")) return hexToInt(v);
+      return 0;
+    };
+    it.setValue=(val)=>{
+      // val 是整数
+      const hex="#"+ (val & 0xFFFFFF).toString(16).padStart(6,"0");
+      picker.setValue(hex);
+    };
+    list.append(it);
+  }
+  addColor.onclick=()=>{ mkColor(colList,"#FFFFFF"); updatePreview(); };
+  addFade.onclick=()=>{ mkColor(fadeList,"#FFFFFF"); updatePreview(); };
+  // 初始空颜色与淡色
+  mkColor(colList,"#FF0000");
+  mkColor(fadeList,"#FFFF00");
+  box.append(label("爆裂颜色"), colList, addColor, label("淡化颜色"), fadeList, addFade,
+             (()=>{ const lab=document.createElement("label"); lab.append(trail, document.createTextNode(" 拖曳")); return lab; })(),
+             (()=>{ const lab=document.createElement("label"); lab.append(twinkle, document.createTextNode(" 闪烁")); return lab; })(),
+             label("形状"), shape);
+  return {
+    el:box,
+    build:()=>{
+      const colors = Array.from(colList.children).map(c=>c.getValue());
+      const fades = Array.from(fadeList.children).map(c=>c.getValue());
+      const obj={}; if(colors.length) obj.colors=colors; if(fades.length) obj.fade_colors=fades; if(trail.checked) obj.has_trail=true; if(twinkle.checked) obj.has_twinkle=true; obj.shape=shape.value; return obj;
+    },
+    fill:(v)=>{
+      // 填充值
+      colList.innerHTML=""; fadeList.innerHTML="";
+      (v?.colors||[]).forEach(c=> mkColor(colList,"#"+ (c & 0xFFFFFF).toString(16).padStart(6,"0")));
+      (v?.fade_colors||[]).forEach(c=> mkColor(fadeList,"#"+ (c & 0xFFFFFF).toString(16).padStart(6,"0")));
+      if(!colList.children.length) mkColor(colList,"#FF0000");
+      if(!fadeList.children.length) mkColor(fadeList,"#FFFF00");
+      trail.checked=!!v?.has_trail;
+      twinkle.checked=!!v?.has_twinkle;
+      shape.value=v?.shape||"small_ball";
+    }
+  };
+};
+
+// fireworks: 包含多个爆裂和飞行时长
+Helper.fireworks = function(){
+  const box=document.createElement("div");
+  const flight=document.createElement("input"); flight.type="number"; flight.min=0; flight.max=5; flight.value=1;
+  const explList=document.createElement("div"); explList.className="list";
+  const btn=document.createElement("button"); btn.textContent="添加爆裂";
+  function mk(r={colors:[0xFF0000], fade_colors:[0xFFFF00], has_trail:false, has_twinkle:false, shape:"small_ball"}){
+    const it=document.createElement("div"); it.className="item";
+    // 使用 firework_explosion helper
+    const api=Helper.firework_explosion();
+    api.fill(r);
+    const del=document.createElement("button"); del.textContent="删除爆裂"; del.className="danger"; del.onclick=()=>{ it.remove(); updatePreview(); };
+    it.append(api.el, del);
+    it.getValue=()=> api.build();
+    it.setValue=(v)=> api.fill(v);
+    explList.append(it);
+  }
+  btn.onclick=()=>{ mk({}); updatePreview(); };
+  mk({});
+  box.append(label("飞行时长"), flight, label("爆裂列表"), explList, btn);
+  return {
+    el:box,
+    build:()=>{
+      return {flight_duration: parseInt(flight.value||"1",10), explosions: Array.from(explList.children).map(c=>c.getValue())};
+    },
+    fill:(v)=>{
+      flight.value=v?.flight_duration||1;
+      explList.innerHTML="";
+      (v?.explosions||[]).forEach(x=> mk(x));
+      if(!explList.children.length) mk({});
+    }
+  };
+};
+
+// suspicious stew already handled as Helper.stew
+
+/* ========================= 页面逻辑 ========================= */
+const itemIdEl = document.getElementById("itemId");
+const countEl = document.getElementById("count");
+const targetEl = document.getElementById("target");
+const componentSelect = document.getElementById("componentSelect");
+const componentsArea = document.getElementById("componentsArea");
+const cmdEl = document.getElementById("cmd");
+const rawComponentsEl = document.getElementById("rawComponents");
+
+// 初始化组件选择器
 (function initPicker(){
-  const groups=[...new Set(CATALOG.map(x=>x.group))];
+  const groups=[...new Set(CATALOG.map(c=>c.group))];
   componentSelect.innerHTML="";
   groups.forEach(g=>{
     const og=document.createElement("optgroup"); og.label=g;
-    CATALOG.filter(x=>x.group===g).forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.title; og.append(o); });
-    componentSelect.append(og);
+    CATALOG.filter(x=>x.group===g).forEach(c=>{
+      const opt=document.createElement("option"); opt.value=c.id; opt.textContent=c.title; og.appendChild(opt);
+    });
+    componentSelect.appendChild(og);
   });
 })();
 
-document.getElementById("addComponent").addEventListener("click", ()=>{
-  const id=componentSelect.value; addComponentCard(id,null); updatePreview();
+document.getElementById("addComponent").addEventListener("click", () => {
+  const id=componentSelect.value;
+  addComponentCard(id, null);
+  updatePreview();
 });
 
+// 创建组件卡片
 function addComponentCard(id, initial){
-  const def = CATALOG.find(x=>x.id===id); if(!def){ alert("未知组件："+id); return; }
+  const def = CATALOG.find(x=>x.id===id);
+  if(!def){ alert("未知组件："+id); return; }
   const tpl=document.getElementById("component-card"); const card=tpl.content.firstElementChild.cloneNode(true);
-  card.dataset.comp=id; card.querySelector(".comp-title").textContent=def.title; card.querySelector(".comp-id").textContent="minecraft:"+id;
-  const formBox=card.querySelector(".comp-form"); const rawBox=card.querySelector(".comp-raw"); const btns=card.querySelector(".btns");
-
-  // 无参数类（bool/num/str/numobj）：不显示任何代码编辑框与切换按钮
+  card.dataset.comp=id;
+  card.querySelector(".comp-title").textContent=def.title;
+  card.querySelector(".comp-id").textContent="minecraft:"+id;
+  const formBox=card.querySelector(".comp-form");
+  const rawBox=card.querySelector(".comp-raw");
+  const btns=card.querySelector(".comp-buttons");
+  // 删除按钮
+  const rmBtn=document.createElement("button"); rmBtn.textContent="删除"; rmBtn.className="danger";
+  rmBtn.onclick=()=>{ card.remove(); updatePreview(); };
   if(def.kind==="bool"||def.kind==="num"||def.kind==="str"||def.kind==="numobj"){
-    const rm=document.createElement("button"); rm.textContent="删除"; rm.className="danger-btn"; rm.onclick=()=>{ card.remove(); updatePreview(); };
-    btns.append(rm);
-
+    // 只有简单字段，不需要切换JSON
+    btns.appendChild(rmBtn);
     if(def.kind==="bool"){
-      const s=document.createElement("select"); fillOptions(s, ["false","true"]); s.value="true";
-      formBox.append(labelOf("启用"), s);
-      formBox.dataset.getter = "bool";
-      formBox._get = ()=> (s.value==="true");
-      formBox._set = (v)=>{ s.value = v===true ? "true":"false"; };
-    }else if(def.kind==="num"){
-      const n=document.createElement("input"); n.type="number"; n.step="any";
-      formBox.append(labelOf("数值"), n);
-      formBox.dataset.getter = "num";
-      formBox._get = ()=> Number(n.value||0);
-      formBox._set = (v)=>{ n.value = (v??""); };
-    }else if(def.kind==="str"){
-      const t=document.createElement("input"); t.type="text";
-      formBox.append(labelOf("字符串"), t);
-      formBox.dataset.getter = "str";
-      formBox._get = ()=> t.value||"";
-      formBox._set = (v)=>{ t.value = v||""; };
-    }else if(def.kind==="numobj"){
-      const n=document.createElement("input"); n.type="number"; n.step="any";
-      formBox.append(labelOf(def.key+" 数值"), n);
-      formBox.dataset.getter = "numobj";
-      formBox._get = ()=> { const v={}; v[def.key]= Number(n.value||0); return v; };
-      formBox._set = (v)=>{ if(v && typeof v==="object" && v[def.key]!=null) n.value=v[def.key]; };
+      const cb=document.createElement("input"); cb.type="checkbox";
+      formBox.append(label("启用"), cb);
+      formBox._get=()=> cb.checked;
+      formBox._set=(v)=>{ cb.checked=!!v; };
+    } else if(def.kind==="num"){
+      const num=document.createElement("input"); num.type="number"; num.step="any";
+      formBox.append(label("值"), num);
+      formBox._get=()=> parseFloat(num.value||"0");
+      formBox._set=(v)=>{ num.value = v??""; };
+    } else if(def.kind==="str"){
+      const txt=document.createElement("input"); txt.type="text";
+      formBox.append(label("值"), txt);
+      formBox._get=()=> txt.value||"";
+      formBox._set=(v)=>{ txt.value = v||""; };
+    } else if(def.kind==="numobj"){
+      const num=document.createElement("input"); num.type="number"; num.step="any";
+      formBox.append(label(def.key||"数值"), num);
+      formBox._get=()=>{ const o={}; o[def.key]= parseFloat(num.value||"0"); return o; };
+      formBox._set=(v)=>{ if(v && v[def.key]!=null) num.value = v[def.key]; };
     }
-
     if(initial!=null) formBox._set(initial);
-  }
-  else if(def.kind==="helper"){
-    // 可视化 + JSON 双向
-    const rm=document.createElement("button"); rm.textContent="删除"; rm.className="danger-btn"; rm.onclick=()=>{ card.remove(); updatePreview(); };
-    const toggle=document.createElement("button"); toggle.textContent="转为原始JSON"; toggle.className="ghost";
-    btns.append(toggle, rm);
-
+  } else if(def.kind==="helper"){
     const api = Helper[def.helper]();
     formBox.append(api.el);
-
-    // 初始值
-    if(initial!=null){
-      try{ api.fill(initial) }catch(e){}
-      rawBox.value = JSON.stringify(initial, null, 2);
-    }else{
-      rawBox.value = JSON.stringify(api.build(), null, 2);
-    }
-
-    // 切换
-    toggle.onclick = ()=>{
+    // 初始化值
+    if(initial!=null) api.fill(initial);
+    else rawBox.value = JSON.stringify(api.build(), null, 2);
+    // 切换按钮
+    const toggle=document.createElement("button"); toggle.className="ghost"; toggle.textContent="转为JSON";
+    btns.appendChild(toggle);
+    btns.appendChild(rmBtn);
+    toggle.onclick=()=>{
       if(rawBox.classList.contains("hide")){
+        // 切到JSON
         rawBox.value = JSON.stringify(api.build(), null, 2);
-        formBox.classList.add("hide"); rawBox.classList.remove("hide"); toggle.textContent="切回可视化";
-      }else{
+        formBox.classList.add("hide"); rawBox.classList.remove("hide"); toggle.textContent="切回编辑";
+      } else {
+        // 回到编辑
         try{
-          const obj = JSON.parse(rawBox.value||"{}");
+          const obj=JSON.parse(rawBox.value||"{}");
           api.fill(obj);
-          rawBox.classList.add("hide"); formBox.classList.remove("hide"); toggle.textContent="转为原始JSON";
-          updatePreview();
-        }catch(e){ alert("JSON 解析失败："+e.message); }
+          rawBox.classList.add("hide"); formBox.classList.remove("hide"); toggle.textContent="转为JSON";
+        }catch(e){ alert(def.title+" JSON解析失败："+e.message); }
       }
+      updatePreview();
     };
-
-    // 变更联动
+    // 在表单模式下更新 JSON
     card.addEventListener("input", ()=>{ if(!rawBox.classList.contains("hide")) return; rawBox.value = JSON.stringify(api.build(), null, 2); updatePreview(); });
-  }
-  else{ // raw
-    const rm=document.createElement("button"); rm.textContent="删除"; rm.className="danger-btn"; rm.onclick=()=>{ card.remove(); updatePreview(); };
-    btns.append(rm);
+  } else {
+    // raw 类型
+    btns.appendChild(rmBtn);
     formBox.classList.add("hide"); rawBox.classList.remove("hide");
     rawBox.value = JSON.stringify(initial??def.template??{}, null, 2);
   }
-
-  componentsArea.append(card);
-  card.addEventListener("input", ()=>updatePreview());
+  componentsArea.appendChild(card);
 }
 
-/* =================== 聚合与预览 =================== */
+// 收集所有组件数据
 function collectComponents(){
   const obj={};
   Array.from(componentsArea.children).forEach(card=>{
-    const id=card.dataset.comp; const def=CATALOG.find(x=>x.id===id);
-    const form=card.querySelector(".comp-form"); const raw=card.querySelector(".comp-raw");
+    const id=card.dataset.comp;
+    const def=CATALOG.find(c=>c.id===id);
+    const form=card.querySelector(".comp-form");
+    const raw=card.querySelector(".comp-raw");
     let val=null;
     if(def.kind==="bool"||def.kind==="num"||def.kind==="str"||def.kind==="numobj"){
       val = form._get();
-    }else if(def.kind==="helper"){
+    } else if(def.kind==="helper"){
       if(raw.classList.contains("hide")){
-        // 从表单构建
-        const api = Helper[def.helper];
-        // 因已闭包在 addComponentCard 中，这里简单重新读取 raw 的值（更稳）
-        val = JSON.parse(card.querySelector(".comp-raw").value||"{}");
-      }else{
-        try{ val = JSON.parse(raw.value||"{}") }catch(e){ throw new Error(def.title+" 的 JSON 无法解析："+e.message) }
+        // 使用表单
+        const helper=Helper[def.helper](); // can't call new; but we rely on stored raw value in textarea; easier to parse raw
+        try{ val = JSON.parse(raw.value||"{}"); } catch(e){ val=null; }
+      } else {
+        try{ val = JSON.parse(raw.value||"{}"); } catch(e){ val=null; }
       }
-    }else{
-      try{ val = JSON.parse(raw.value||"{}") }catch(e){ throw new Error(def.title+" 的 JSON 无法解析："+e.message) }
+    } else {
+      // raw only
+      try{ val = JSON.parse(raw.value||"{}"); }catch(e){ val=null; }
     }
     obj["minecraft:"+id] = val;
   });
   return obj;
 }
 
+// 更新预览
 function updatePreview(){
   try{
     const item = ns(itemIdEl.value.trim() || "minecraft:stone");
     const cnt = Math.max(1, parseInt(countEl.value||"1",10));
-    const comps = collectComponents();
+    const comps=collectComponents();
     rawComponentsEl.value = JSON.stringify(comps, null, 2);
-    const inline = Object.entries(comps).map(([k,v])=>`${k}=${jsonInline(v)}`).join(",");
-    const itemStack = inline ? `${item}[${inline}]` : item;
-    const cmd = `/give ${targetEl.value.trim()||"@s"} ${itemStack} ${cnt}`;
-    cmdEl.textContent = cmd;
-  }catch(e){
-    cmdEl.textContent = "⚠️ "+e.message;
+    const inline=Object.entries(comps).map(([k,v])=>{
+  if(k==="minecraft:item_name"||k==="minecraft:custom_name") return `${k}=${componentToSNBT(v)}`;
+  if(k==="minecraft:lore"){
+    const arr = Array.isArray(v) ? v : (v && Array.isArray(v.lines) ? v.lines : []);
+    return `${k}=[${arr.map(componentToSNBT).join(',')}]`;
   }
+  return `${k}=${jsonInline(v)}`;
+}).join(",");
+    const stack = inline ? `${item}[${inline}]` : item;
+    const cmd=`/give ${targetEl.value.trim()||"@s"} ${stack} ${cnt}`;
+    cmdEl.textContent = cmd;
+  } catch(err){ cmdEl.textContent = "⚠️ "+err.message; }
+}
+// SNBT helpers
+function snbtString(s){
+  return '\'' + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\'';
+}
+function snbtKey(k){
+  return /^[A-Za-z0-9_:\-\.\+]+$/.test(k) ? k : JSON.stringify(k);
+}
+function toSNBT(v){
+  if(v==null) return "null";
+  const t=typeof v;
+  if(t==="string") return snbtString(v);
+  if(t==="number"||t==="boolean") return String(v);
+  if(Array.isArray(v)) return '['+v.map(toSNBT).join(",")+']';
+  // object
+  return '{'+Object.entries(v).filter(([k,val])=>val!==undefined).map(([k,val])=> snbtKey(k)+':'+toSNBT(val)).join(",")+'}';
+}
+function componentToSNBT(comp){
+  if(typeof comp==='string' || typeof comp==='number' || typeof comp==='boolean'){
+    return toSNBT({text: String(comp)});
+  }
+  if(Array.isArray(comp)) return toSNBT(comp);
+  return toSNBT(comp||{text:''});
 }
 function jsonInline(v){
   if(v==null) return "null";
   if(typeof v==="string"||typeof v==="number"||typeof v==="boolean") return JSON.stringify(v);
   if(Array.isArray(v)) return `[${v.map(jsonInline).join(",")}]`;
-  return `{${Object.entries(v).map(([k,val])=>`${JSON.stringify(k)}:${jsonInline(val)}`).join(",")}}`;
+  return `{${Object.entries(v).map(([k,val])=> `${JSON.stringify(k)}:${jsonInline(val)}`).join(",")}}`;
 }
 
-["input","change"].forEach(ev=>document.getElementById("left").addEventListener(ev, updatePreview, true));
-
-/* =================== 顶部 JSON 面板 =================== */
+// 原始 JSON 面板交互
 document.getElementById("applyJson").addEventListener("click", ()=>{
   try{
-    const obj = JSON.parse(rawComponentsEl.value||"{}");
+    const obj=JSON.parse(rawComponentsEl.value||"{}");
     componentsArea.innerHTML="";
     Object.entries(obj).forEach(([fullId,val])=>{
-      const id = fullId.replace(/^minecraft:/,"");
-      addComponentCard(id, val);
+      const id=fullId.replace(/^minecraft:/,"");
+      addComponentCard(id,val);
     });
-    updatePreview(); toast("已载入 JSON");
+    updatePreview();
+    toast("已载入 JSON");
   }catch(e){ alert("JSON 解析失败："+e.message); }
 });
 document.getElementById("validateJson").addEventListener("click", ()=>{
   try{ JSON.parse(rawComponentsEl.value||"{}"); alert("JSON 格式正确 ✅"); }catch(e){ alert("JSON 格式错误："+e.message); }
 });
-document.getElementById("copyCmd").addEventListener("click", ()=>{ navigator.clipboard.writeText(cmdEl.textContent||"").then(()=>toast("命令已复制")) });
-document.getElementById("copyJson").addEventListener("click", ()=>{ navigator.clipboard.writeText(rawComponentsEl.value||"").then(()=>toast("JSON 已复制")) });
+document.getElementById("copyCmd").addEventListener("click", ()=>{ navigator.clipboard.writeText(cmdEl.textContent||"").then(()=>toast("命令已复制")); });
+document.getElementById("copyJson").addEventListener("click", ()=>{ navigator.clipboard.writeText(rawComponentsEl.value||"").then(()=>toast("JSON 已复制")); });
 
-/* 初始：不预置任何组件；仅刷新预览 */
+// 初始更新
 updatePreview();
 </script>
 </body>
